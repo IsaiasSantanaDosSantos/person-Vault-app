@@ -1,0 +1,624 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Documentação técnica — Cofre",
+  description: "Documentação técnica completa do Cofre de senhas pessoal.",
+};
+
+function Section({
+  id,
+  number,
+  title,
+  children,
+}: {
+  id: string;
+  number: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-20">
+      <h2 className="text-xl font-semibold text-vault-text mt-12 mb-4 pb-2 border-b border-vault-border">
+        {number}. {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Sub({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-8">
+      <h3 className="text-base font-semibold text-vault-text mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function P({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-vault-muted leading-relaxed mb-4">{children}</p>;
+}
+
+function UL({ children }: { children: React.ReactNode }) {
+  return (
+    <ul className="list-disc list-outside pl-5 space-y-2 text-sm text-vault-muted mb-4 marker:text-vault-steel">
+      {children}
+    </ul>
+  );
+}
+
+function OL({ children }: { children: React.ReactNode }) {
+  return (
+    <ol className="list-decimal list-outside pl-5 space-y-2 text-sm text-vault-muted mb-4 marker:text-vault-steel">
+      {children}
+    </ol>
+  );
+}
+
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="bg-vault-bg border border-vault-border rounded px-1.5 py-0.5 text-xs font-mono text-vault-text">
+      {children}
+    </code>
+  );
+}
+
+function Block({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-x-auto my-4 rounded-lg border border-vault-border bg-vault-panel">
+      <pre className="p-4 text-[11px] leading-relaxed font-mono text-vault-text whitespace-pre">
+        {children}
+      </pre>
+    </div>
+  );
+}
+
+function Table({
+  headers,
+  rows,
+}: {
+  headers: string[];
+  rows: React.ReactNode[][];
+}) {
+  return (
+    <div className="overflow-x-auto my-4 rounded-lg border border-vault-border">
+      <table className="w-full text-sm border-collapse min-w-[560px]">
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th
+                key={h}
+                className="text-left font-medium text-vault-text bg-vault-panel px-3 py-2 border-b border-vault-border"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {row.map((cell, j) => (
+                <td
+                  key={j}
+                  className="px-3 py-2 border-b border-vault-border align-top text-vault-muted"
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const toc = [
+  ["intro", "O que é a aplicação"],
+  ["tecnologias", "Tecnologias usadas"],
+  ["arquitetura", "Arquitetura e fluxo de dados"],
+  ["funcionalidades", "Funcionalidades"],
+  ["seguranca", "Modelo de segurança em detalhe"],
+  ["testes", "Testes realizados"],
+  ["auditorias", "Auditorias realizadas"],
+  ["nivel", "Quão segura é, e para quais níveis de senha"],
+  ["comercial", "Caminho para um produto comercial"],
+  ["limitacoes", "Limitações conhecidas"],
+  ["pendencias", "Ações manuais pendentes"],
+  ["estrutura", "Estrutura de arquivos"],
+];
+
+export default function DocsPage() {
+  return (
+    <div className="min-h-screen pb-24">
+      <header className="sticky top-0 bg-vault-bg/90 backdrop-blur border-b border-vault-border px-4 py-3 flex items-center justify-between z-10">
+        <div className="flex items-center gap-2">
+          <img src="/icons/icon-192.png" alt="" width={24} height={24} className="w-6 h-6 rounded-md" />
+          <span className="font-semibold text-sm tracking-tight">Cofre — Documentação</span>
+        </div>
+        <Link href="/" className="text-xs text-vault-muted hover:text-vault-text transition">
+          Voltar ao app
+        </Link>
+      </header>
+
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+        <p className="text-xs uppercase tracking-wide text-vault-muted mb-2">
+          Documentação técnica · v1.0 · 2026-08-13
+        </p>
+        <h1 className="text-2xl font-semibold text-vault-text mb-4">
+          Documentação Técnica — Cofre de Senhas Pessoal
+        </h1>
+        <P>
+          Este documento reúne, num só lugar, o que a aplicação é, como foi construída, o que foi
+          testado, o que foi auditado e — a pergunta que mais importa — qual o nível de senha que
+          é seguro guardar nela.
+        </P>
+
+        <div className="bg-vault-panel border border-vault-border rounded-lg p-4 mb-8">
+          <p className="text-xs font-medium text-vault-text mb-2">Sumário</p>
+          <ol className="text-sm space-y-1.5 list-decimal list-inside">
+            {toc.map(([id, label]) => (
+              <li key={id}>
+                <a href={`#${id}`} className="text-vault-steel hover:text-vault-steelBright transition">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <Section id="intro" number="1" title="O que é a aplicação">
+          <P>
+            Um cofre de senhas pessoal, de uso individual, instalável como PWA (Progressive Web
+            App — funciona como app no celular/desktop a partir do navegador). Guarda credenciais
+            (serviço, usuário/e-mail, senha) de forma{" "}
+            <strong className="text-vault-text">
+              criptografada no próprio dispositivo do usuário antes de qualquer dado ser enviado
+              ao servidor
+            </strong>{" "}
+            — o backend (Supabase) nunca tem acesso às senhas em texto puro, só ao resultado
+            cifrado.
+          </P>
+          <P>
+            Hoje é um projeto de uso pessoal, construído com o mesmo rigor técnico que se
+            aplicaria a um sistema em produção. Ainda não passou pelos processos que caracterizam
+            um produto comercial (auditoria de segurança por terceiros, conformidade regulatória,
+            suporte formal, infraestrutura dedicada) — o caminho pra chegar lá está detalhado na{" "}
+            <a href="#comercial" className="text-vault-steel hover:text-vault-steelBright">
+              seção 9
+            </a>
+            , como um upgrade futuro.
+          </P>
+        </Section>
+
+        <Section id="tecnologias" number="2" title="Tecnologias usadas">
+          <Table
+            headers={["Camada", "Tecnologia", "Versão", "Papel"]}
+            rows={[
+              ["Framework web", "Next.js", "14.2.35", "App Router, renderização, roteamento, build"],
+              ["Biblioteca de UI", "React", "^18.3.1", "Componentes da interface"],
+              ["Linguagem", "TypeScript", "^5.5.3 (resolvido em 5.9.3)", "Tipagem estática em todo o código"],
+              ["Estilo", "Tailwind CSS", "^3.4.4", "Utilitários de CSS"],
+              [
+                "Fonte",
+                "Poppins (texto) + IBM Plex Mono (senhas)",
+                "via next/font/google",
+                "Tipografia, self-hosted (sem CDN externo em runtime)",
+              ],
+              [
+                "Backend-as-a-Service",
+                "Supabase",
+                "@supabase/supabase-js ^2.45.4",
+                "Autenticação (e-mail/senha) + banco de dados Postgres",
+              ],
+              ["Banco de dados", "PostgreSQL (gerenciado pelo Supabase)", "—", "Armazena perfis e itens do cofre, sempre cifrados"],
+              ["Criptografia", "Web Crypto API (nativa do navegador)", "—", "PBKDF2 (derivação de chave) + AES-256-GCM (cifra)"],
+              ["PWA", "Web App Manifest + Service Worker", "—", "Instalação como app, ícone, splash screen"],
+              ["Hospedagem recomendada", "Vercel", "—", "Deploy com HTTPS automático (obrigatório pra Web Crypto API)"],
+            ]}
+          />
+          <P>
+            <strong className="text-vault-text">Por que essa combinação:</strong> Next.js +
+            Supabase é a dupla mais comum pra apps pessoais rápidos de construir com autenticação
+            e banco prontos; a escolha crítica de segurança não está nessas peças, e sim em{" "}
+            <strong className="text-vault-text">onde a criptografia acontece</strong> — que é 100%
+            no navegador (<Code>lib/crypto.ts</Code>), usando a Web Crypto API nativa (não uma
+            biblioteca JS de terceiros para a cifra em si, o que reduz superfície de bugs de
+            implementação).
+          </P>
+        </Section>
+
+        <Section id="arquitetura" number="3" title="Arquitetura e fluxo de dados">
+          <Sub title="3.1 Visão geral (zero-knowledge)">
+            <P>
+              "Zero-knowledge" aqui significa:{" "}
+              <strong className="text-vault-text">
+                o servidor (Supabase) nunca tem, em nenhum momento, acesso a uma senha em texto
+                puro nem à chave capaz de decifrá-la.
+              </strong>{" "}
+              Só o navegador do usuário tem essa capacidade, e só enquanto a aba está aberta e a
+              senha mestra foi digitada naquela sessão.
+            </P>
+            <Block>{`Navegador (cliente)
+─────────────────────────────────────────────
+Senha mestra (digitada)
+   │
+   ▼
+PBKDF2-HMAC-SHA256 (250k ou 600k iterações + salt único por usuário)
+   │
+   ▼
+Chave AES-256 (CryptoKey, não-exportável, só em RAM)
+   │
+   ├──► encrypt(senha do item) ──► { iv, ciphertext } ──┐
+   │                                                     │
+   └──► decrypt({ iv, ciphertext }) ──► senha em texto   │
+                                                          │
+                                                          ▼
+                                    Supabase (Postgres + Auth)
+                                    ─────────────────────────────
+                                    vault_profiles: salt,
+                                      verifier_iv/ciphertext,
+                                      iterations
+
+                                    vault_items: label,
+                                      username (texto puro),
+                                      password_iv/ciphertext
+                                      (SEMPRE cifrado)
+
+                                    Row Level Security: cada
+                                    usuário só lê/escreve as
+                                    próprias linhas`}</Block>
+          </Sub>
+
+          <Sub title="3.2 Dois segredos, dois comportamentos diferentes">
+            <Table
+              headers={["", "Senha da conta", "Senha mestra"]}
+              rows={[
+                ["Gerenciada por", "Supabase Auth", "100% pelo app, no navegador"],
+                ["Onde fica validada", "Servidor (Supabase)", "Só localmente, contra um \"verificador\" cifrado"],
+                [
+                  "Persiste ao recarregar?",
+                  "Sim (token de sessão em localStorage)",
+                  <strong key="n" className="text-vault-text">Não — precisa ser redigitada sempre</strong>,
+                ],
+                [
+                  "O que protege",
+                  "Acesso à sua conta/API (ver a lista de itens cifrados, apagar, etc.)",
+                  "A capacidade de ler o conteúdo dos itens (decifrar)",
+                ],
+                [
+                  "Se for esquecida",
+                  "Dá pra recuperar por e-mail (fluxo padrão do Supabase Auth)",
+                  <strong key="r" className="text-vault-text">Não há recuperação — perder a senha mestra é perder acesso a tudo cifrado com ela</strong>,
+                ],
+              ]}
+            />
+          </Sub>
+
+          <Sub title="3.3 Fluxo de login (com persistência de sessão)">
+            <OL>
+              <li>Usuário abre o app → verifica se já existe uma sessão Supabase válida.</li>
+              <li><strong className="text-vault-text">Sem sessão:</strong> vai pra /login, mostra e-mail + senha da conta.</li>
+              <li><strong className="text-vault-text">Com sessão</strong> (ex: reload de página): /login detecta automaticamente e pula direto pra "digite sua senha mestra".</li>
+              <li>Com a sessão validada, o app busca o perfil de criptografia (salt, verificador, iterações).</li>
+              <li>A senha mestra digitada + o salt + o número de iterações salvo (por perfil, não uma constante global) geram a chave AES via PBKDF2.</li>
+              <li>Essa chave tenta decifrar o verificador. Se der certo, a chave fica em memória e o cofre abre; se falhar, mostra "Senha mestra incorreta" sem revelar mais nada.</li>
+            </OL>
+          </Sub>
+
+          <Sub title="3.4 Fluxo de leitura/escrita de um item">
+            <UL>
+              <li><strong className="text-vault-text">Criar/editar:</strong> a senha é cifrada no navegador (IV novo a cada operação) — só {"{iv, ciphertext}"} vai pro Supabase.</li>
+              <li><strong className="text-vault-text">Listar:</strong> a lista trazida contém só ciphertext — nada é decifrado até o usuário pedir.</li>
+              <li><strong className="text-vault-text">Ver/copiar:</strong> só nesse momento o item específico é decifrado, sob demanda, usando a chave em memória.</li>
+            </UL>
+          </Sub>
+        </Section>
+
+        <Section id="funcionalidades" number="4" title="Funcionalidades">
+          <UL>
+            <li>Criar conta / entrar (e-mail + senha, via Supabase Auth).</li>
+            <li>Definir senha mestra na primeira vez (com medidor de força e mínimo de 12 caracteres).</li>
+            <li>Destravar o cofre com a senha mestra em sessões seguintes.</li>
+            <li>Listar, buscar (por serviço ou usuário) os itens salvos.</li>
+            <li><strong className="text-vault-text">Adicionar</strong> um novo item, com gerador de senha aleatória embutido.</li>
+            <li><strong className="text-vault-text">Editar</strong> um item existente — reencriptografa com IV novo ao salvar.</li>
+            <li><strong className="text-vault-text">Excluir</strong> um item (com confirmação).</li>
+            <li><strong className="text-vault-text">Ver</strong> a senha de um item, com ocultação automática após 20s.</li>
+            <li><strong className="text-vault-text">Copiar</strong> a senha pra área de transferência, com limpeza automática após 30s.</li>
+            <li>Sessão persiste ao recarregar — só a senha mestra é pedida de novo.</li>
+            <li>Botão de logoff (dentro do cofre e também na etapa de senha mestra).</li>
+            <li>Bloqueio automático do cofre após 5 minutos sem interação.</li>
+            <li>Instalável como PWA (ícone, splash screen, tela cheia) no Android/iOS/desktop.</li>
+          </UL>
+        </Section>
+
+        <Section id="seguranca" number="5" title="Modelo de segurança em detalhe">
+          <Sub title="5.1 Criptografia">
+            <UL>
+              <li><strong className="text-vault-text">Derivação de chave:</strong> PBKDF2-HMAC-SHA256, com salt aleatório de 128 bits único por usuário.</li>
+              <li><strong className="text-vault-text">Cifra:</strong> AES-256-GCM (autenticada — detecta adulteração do ciphertext), com IV aleatório de 96 bits a cada operação, nunca reutilizado.</li>
+              <li><strong className="text-vault-text">Chave não-exportável:</strong> a CryptoKey derivada é <Code>extractable: false</Code> — o próprio código não consegue extrair os bytes crus, só usá-la via encrypt/decrypt.</li>
+              <li><strong className="text-vault-text">Verificador de senha mestra:</strong> o app cifra uma string fixa conhecida com a chave derivada; "acertar" a senha mestra é conseguir decifrar essa string de volta. A senha mestra em si nunca é enviada nem armazenada, nem cifrada.</li>
+            </UL>
+          </Sub>
+          <Sub title="5.2 Controle de acesso (Row Level Security)">
+            <P>
+              Todo acesso ao banco passa por políticas de Row Level Security: cada linha das
+              tabelas <Code>vault_profiles</Code> e <Code>vault_items</Code> só é visível/editável
+              por quem tem <Code>auth.uid() = user_id</Code> — aplicado automaticamente pelo banco
+              em toda consulta, independente do que o cliente pedir. Cobre select, insert, update
+              e delete. A política de update não define uma cláusula <Code>WITH CHECK</Code>{" "}
+              separada, então o Postgres usa a própria condição do <Code>USING</Code> como
+              verificação também da linha depois da alteração — o que impede um usuário de "roubar"
+              um item de outro trocando o <Code>user_id</Code> numa edição.
+            </P>
+          </Sub>
+          <Sub title="5.3 Custo do PBKDF2 é por usuário, não uma constante global">
+            <P>
+              Perfis criados originalmente usam 250.000 iterações; perfis criados após a correção
+              de segurança usam 600.000 (recomendação OWASP 2023+). Esse número fica salvo em{" "}
+              <Code>vault_profiles.iterations</Code> — não é uma constante fixa no código —
+              justamente porque mudar o número de iterações muda por completo a chave derivada de
+              uma mesma senha mestra, o que quebraria a decifração de tudo que já foi salvo se não
+              fosse versionado por perfil.
+            </P>
+          </Sub>
+          <Sub title="5.4 Cabeçalhos HTTP e Content-Security-Policy">
+            <P>
+              <Code>middleware.ts</Code> gera uma CSP com um nonce aleatório por requisição,
+              restringindo de onde scripts podem ser carregados/executados. <Code>next.config.mjs</Code>{" "}
+              adiciona Strict-Transport-Security, X-Content-Type-Options, X-Frame-Options,
+              Referrer-Policy e Permissions-Policy. É a principal defesa contra o pior cenário
+              técnico possível pra este app: um XSS que tentasse ler a chave em memória ou os
+              tokens de sessão.
+            </P>
+          </Sub>
+          <Sub title="5.5 O que o servidor consegue ver, e o que não consegue">
+            <Table
+              headers={["Dado", "O servidor (Supabase) vê?"]}
+              rows={[
+                ["Seu e-mail e senha da conta", "Sim (é o próprio provedor de autenticação)"],
+                ["Sua senha mestra", <strong key="1" className="text-vault-text">Nunca</strong>],
+                ["A chave de criptografia derivada", <strong key="2" className="text-vault-text">Nunca</strong>],
+                ["Salt do seu perfil", "Sim (não é segredo — de nada serve sem a senha mestra)"],
+                ["Nome do serviço e usuário/e-mail salvos", "Sim, em texto puro (deliberado — não são segredos críticos)"],
+                ["A senha de cada item", <strong key="3" className="text-vault-text">Nunca em texto puro</strong>],
+              ]}
+            />
+          </Sub>
+        </Section>
+
+        <Section id="testes" number="6" title="Testes realizados">
+          <Sub title="O que foi feito">
+            <UL>
+              <li><Code>npm run build</Code> (compilação de produção completa — TypeScript, lint, geração de páginas estáticas) validado sem erros após cada rodada de mudanças.</li>
+              <li><Code>npm audit</Code> rodado antes e depois da atualização do Next.js, confirmando a eliminação da CVE crítica e das falhas altas aplicáveis a este app.</li>
+              <li>Verificação manual no navegador: ausência de erros de console, ausência de violações de CSP, requisições retornando 200 OK, estrutura de acessibilidade da tela de login, layout do modal de senha em diferentes estados.</li>
+              <li>Teste isolado do componente de edição numa rota temporária sem autenticação, especificamente pra confirmar a correção do botão "Gerar" saltando pra fora do modal — rota removida depois do teste.</li>
+            </UL>
+          </Sub>
+          <Sub title="O que NÃO foi feito">
+            <UL>
+              <li><strong className="text-vault-text">Nenhum teste automatizado</strong> (unitário, integração, e2e) — não há Jest, Playwright, Cypress ou similar configurado.</li>
+              <li><strong className="text-vault-text">Não testei o fluxo real de login/criação de conta</strong> contra o projeto Supabase de produção, pra não criar dados de teste reais sem autorização.</li>
+              <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros.</li>
+              <li>Sem teste de carga/performance, nem em navegadores reais além do Chromium usado nas verificações.</li>
+              <li>Sem teste do fluxo de instalação como PWA num dispositivo móvel real.</li>
+            </UL>
+          </Sub>
+        </Section>
+
+        <Section id="auditorias" number="7" title="Auditorias realizadas — histórico consolidado">
+          <Table
+            headers={["Rodada", "Data", "Foco", "Resultado"]}
+            rows={[
+              [
+                "v1",
+                "2026-08-13",
+                "Arquitetura completa: criptografia, RLS, dependências, cabeçalhos, força de senha",
+                "5 achados Altos e 4 Médios corrigidos em código; itens de configuração do Supabase documentados como pendentes",
+              ],
+              [
+                "v2",
+                "2026-08-13",
+                "Sessão persistente, botão de logoff, edição de itens, ícone de marca",
+                "Confirmado que a sessão persistente não enfraquece a segurança; RLS de UPDATE verificada; nenhum novo achado de risco",
+              ],
+              [
+                "Documentação",
+                "2026-08-13",
+                "Correção de layout (overflow do botão \"Gerar\")",
+                "Corrigido com min-w-0 — puramente visual, sem implicação de segurança",
+              ],
+            ]}
+          />
+          <Sub title="Achados corrigidos ao longo das duas auditorias">
+            <OL>
+              <li>PBKDF2 abaixo do recomendado → 600k iterações (por perfil, com compatibilidade retroativa)</li>
+              <li>Sem exigência de força pra senha mestra → mínimo 12 caracteres + medidor de força + bloqueio de senhas comuns</li>
+              <li>Sem CSP/cabeçalhos de segurança → CSP com nonce + HSTS + demais headers</li>
+              <li>Next.js com CVE crítica → atualizado para versão corrigida</li>
+              <li>Sem bloqueio por inatividade → trava automática após 5 min</li>
+              <li>Sem limites de tamanho no banco → check constraints adicionados</li>
+              <li>Viés estatístico no gerador de senha aleatória → corrigido via rejection sampling</li>
+              <li>Campo de senha visível por padrão → oculto por padrão, com botão mostrar/ocultar</li>
+            </OL>
+          </Sub>
+        </Section>
+
+        <Section id="nivel" number="8" title="Quão segura é a aplicação, e para quais níveis de senha">
+          <Sub title="8.1 Resposta direta">
+            <P>
+              <strong className="text-vault-text">
+                Não existe "100% seguro" em software — isso vale pra qualquer aplicação, comercial
+                ou pessoal.
+              </strong>{" "}
+              O que posso afirmar com base nas auditorias feitas:
+            </P>
+            <UL>
+              <li>Nenhuma vulnerabilidade conhecida e não mitigada foi encontrada no código revisado, nas duas rodadas de auditoria.</li>
+              <li>A arquitetura (zero-knowledge, chave nunca sai do dispositivo, RLS por linha, criptografia autenticada) é estruturalmente correta e segue práticas atuais recomendadas (OWASP).</li>
+              <li>As camadas de defesa em profundidade que normalmente faltam em projetos pessoais desse tipo (CSP, cabeçalhos, política de senha forte, bloqueio por inatividade) foram implementadas.</li>
+            </UL>
+          </Sub>
+          <Sub title="8.2 Por nível de senha">
+            <Table
+              headers={["Tipo de senha", "Recomendação", "Por quê"]}
+              rows={[
+                [
+                  "Contas pessoais comuns (redes sociais, streaming, fóruns)",
+                  "✅ Seguro guardar aqui",
+                  "Risco baixo mesmo em caso de comprometimento; proteção bem acima do que a maioria das pessoas usa",
+                ],
+                [
+                  "E-mail principal",
+                  "✅ Seguro, com senha mestra forte e checklist da seção 11 completo",
+                  "O e-mail principal costuma ser a chave-mestra de recuperação de tudo mais",
+                ],
+                [
+                  "Cartão de crédito / dados de pagamento",
+                  "✅ Seguro do ponto de vista técnico da criptografia",
+                  "AES-256-GCM protege esse dado tão bem quanto qualquer outro texto guardado",
+                ],
+                [
+                  "Banco (senha de acesso à conta, app bancário)",
+                  "✅ Seguro com o checklist da seção 11 completo (especialmente MFA + senha mestra forte)",
+                  "Vale garantir que TODAS as camadas, não só a criptografia, estejam ativas",
+                ],
+                [
+                  "Servidores de produção / infraestrutura crítica",
+                  "🟡 Avalie o risco com atenção antes",
+                  "Ver seção 8.3 — um app sem auditoria de terceiros carrega mais risco residual",
+                ],
+              ]}
+            />
+          </Sub>
+          <Sub title="8.3 Sobre auditoria independente">
+            <P>
+              As duas auditorias deste documento foram feitas internamente, a pedido do
+              proprietário — não por uma empresa de segurança terceirizada. Isso é diferente do
+              histórico de escrutínio público que produtos maduros como Bitwarden, 1Password ou
+              KeePass acumulam ao longo de anos, incluindo programas de recompensa por
+              vulnerabilidades (bug bounty) abertos a pesquisadores externos. Isso não significa
+              que o app seja inseguro — significa que a confiança nele hoje vem de revisões
+              pontuais, não de um histórico contínuo de validação externa. Para segredos de
+              altíssima criticidade onde um erro é catastrófico e irreversível, essa diferença deve
+              pesar na decisão. A{" "}
+              <a href="#comercial" className="text-vault-steel hover:text-vault-steelBright">
+                seção 9
+              </a>{" "}
+              detalha o que fecharia essa lacuna.
+            </P>
+          </Sub>
+        </Section>
+
+        <Section id="comercial" number="9" title="Caminho para um produto comercial (upgrade futuro)">
+          <P>
+            Esta seção existe pra responder: <strong className="text-vault-text">"o que faltaria
+            pra transformar isso num produto real, vendável, com usuários que não sejam só eu?"</strong>{" "}
+            Nada aqui é urgente pro uso pessoal atual — é um roteiro de melhorias pra quando/se
+            esse for o objetivo.
+          </P>
+          <Sub title="9.1 Segurança e conformidade">
+            <UL>
+              <li>Auditoria de segurança por empresa terceirizada independente, incluindo pentest formal — o passo mais importante pra fechar a lacuna da seção 8.3.</li>
+              <li>Programa de bug bounty, aberto a pesquisadores de segurança externos.</li>
+              <li>Migrar a derivação de chave de PBKDF2 para Argon2id.</li>
+              <li>Gestão de segredos via KMS/HSM dedicado, em vez de depender só das variáveis de ambiente do provedor de hospedagem.</li>
+              <li>Certificações formais conforme o público-alvo: SOC 2 Type II, ISO 27001.</li>
+              <li>Conformidade com LGPD/GDPR: política de privacidade, termos de uso, contrato de processamento de dados (DPA), fluxo formal de exportação/exclusão de dados.</li>
+              <li>Plano de resposta a incidentes e canal formal de divulgação de vulnerabilidades.</li>
+            </UL>
+          </Sub>
+          <Sub title="9.2 Infraestrutura e operação">
+            <UL>
+              <li>Infraestrutura dedicada (hoje roda em plano gratuito do Supabase) com backups multi-região e plano de recuperação de desastre.</li>
+              <li>Monitoramento, alertas e uma página de status pública, com SLA de disponibilidade formal.</li>
+              <li>Pipeline de CI/CD com testes automatizados e varredura de segurança automática (SAST/DAST, análise de dependências) antes de cada deploy.</li>
+              <li>Rate limiting e proteção contra DDoS em nível de infraestrutura (WAF).</li>
+              <li>Processo formal de troca de senha mestra, com reencriptação automática de todos os itens existentes.</li>
+            </UL>
+          </Sub>
+          <Sub title="9.3 Produto e experiência">
+            <UL>
+              <li>Sincronização entre múltiplos dispositivos com resolução de conflitos.</li>
+              <li>Extensão de navegador para autopreenchimento.</li>
+              <li>Trilha de auditoria completa (log de acessos) e exportação/backup do cofre.</li>
+              <li>Acessibilidade (WCAG) e internacionalização (hoje só em português).</li>
+              <li>Fluxo de acesso de emergência/legado digital.</li>
+            </UL>
+          </Sub>
+          <Sub title="9.4 Negócio e jurídico">
+            <UL>
+              <li>Constituição formal de empresa e seguro de responsabilidade civil/cibernético.</li>
+              <li>Infraestrutura de cobrança e planos, com termos de serviço revisados por um advogado.</li>
+              <li>Canal formal de suporte ao cliente.</li>
+            </UL>
+          </Sub>
+        </Section>
+
+        <Section id="limitacoes" number="10" title="Limitações conhecidas">
+          <UL>
+            <li>Sem campo de notas na UI (o banco já suporta a coluna, falta só o formulário).</li>
+            <li>Sem trilha de auditoria/log de acessos.</li>
+            <li>Sem exportação/backup do cofre.</li>
+            <li>Clipboard: a senha copiada pode persistir em gerenciadores de histórico do sistema operacional além dos 30s que o app tenta limpar — limitação da plataforma.</li>
+            <li>Sem tratamento de erro visível na interface se salvar/editar falhar por perda de conexão — não é falha de segurança, é robustez de UX pendente.</li>
+            <li>Cofres criados antes da correção do PBKDF2 continuam em 250.000 iterações até a senha mestra ser redefinida.</li>
+          </UL>
+        </Section>
+
+        <Section id="pendencias" number="11" title="Ações manuais pendentes">
+          <P>
+            Estas dependem de configuração no painel do Supabase ou de uma ação sua — não são
+            coisas que o código sozinho resolve:
+          </P>
+          <OL>
+            <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code> e os limites de tamanho — idempotente).</li>
+            <li>Habilitar MFA (TOTP) em Authentication → Providers.</li>
+            <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
+            <li>Configurar rate limiting / CAPTCHA no login e signup.</li>
+            <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>
+          </OL>
+        </Section>
+
+        <Section id="estrutura" number="12" title="Estrutura de arquivos">
+          <Block>{`vault-app/
+├── app/
+│   ├── page.tsx                 # Redireciona pra /login ou /vault conforme sessão
+│   ├── layout.tsx                # Layout raiz, fontes (Poppins/IBM Plex Mono), metadata PWA
+│   ├── icon.png, apple-icon.png, favicon.ico   # Ícones (convenção Next.js App Router)
+│   ├── login/page.tsx            # Login, criação de conta, senha mestra
+│   ├── vault/page.tsx            # Tela principal do cofre
+│   └── docs/page.tsx             # Esta documentação, publicada em /docs
+├── components/
+│   ├── PasswordCard.tsx          # Card de um item (ver/copiar/editar/excluir)
+│   ├── PasswordFormModal.tsx     # Modal de criar OU editar um item
+│   └── ServiceWorkerRegister.tsx # Registra o service worker do PWA
+├── lib/
+│   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (toda a criptografia)
+│   ├── passwordStrength.ts       # Validação de força da senha mestra
+│   ├── keyStore.ts               # Chave derivada em memória (nunca em disco)
+│   ├── vaultStore.ts             # CRUD contra o Supabase (vault_profiles, vault_items)
+│   └── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
+├── supabase/
+│   └── schema.sql                # Tabelas, RLS, constraints (rodar no SQL Editor)
+├── middleware.ts                 # Content-Security-Policy com nonce por requisição
+├── next.config.mjs               # Cabeçalhos de segurança (HSTS, X-Frame-Options, etc.)
+├── public/
+│   ├── manifest.json             # Manifest do PWA (cores, ícones, screenshots)
+│   ├── sw.js                     # Service worker
+│   ├── icons/                    # Ícones do manifest (192px, 512px)
+│   └── screenshots/               # Screenshots do manifest
+├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
+├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
+├── DOCUMENTACAO.md               # Versão em markdown deste documento
+└── README.md                     # Guia de instalação/deploy`}</Block>
+        </Section>
+      </div>
+    </div>
+  );
+}

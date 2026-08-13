@@ -1,0 +1,45 @@
+{
+  "name": "Cofre — senhas pessoais",
+  "short_name": "Cofre",
+  "description": "Cofre de senhas pessoal, criptografado no dispositivo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "rgb(17, 20, 24)",
+  "theme_color": "rgb(245, 223, 78)",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/login.png",
+      "sizes": "901x776",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tela de login"
+    },
+    {
+      "src": "/screenshots/master-password.png",
+      "sizes": "879x710",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Senha mestra"
+    },
+    {
+      "src": "/screenshots/vault.png",
+      "sizes": "1178x896",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Cofre de senhas"
+    },
+    {
+      "src": "/screenshots/add-password.png",
+      "sizes": "1171x891",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Adicionar nova senha"
+    }
+  ]
+}
