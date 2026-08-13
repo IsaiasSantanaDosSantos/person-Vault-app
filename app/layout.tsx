@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, IBM_Plex_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
@@ -42,6 +43,16 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Lê os headers da requisição só pra forçar renderização dinâmica
+  // (por requisição), não estática. O nonce da CSP (middleware.ts) é
+  // diferente a cada requisição — numa página pré-renderizada estática
+  // (o padrão do Next.js quando nada exige renderização dinâmica), o
+  // HTML é gerado uma única vez no build, com um nonce que nunca bate
+  // com o nonce novo que o middleware manda a cada requisição real.
+  // Resultado: todo script inline (inclusive o bootstrap do próprio
+  // Next.js) é bloqueado pela CSP e a página trava carregando.
+  headers();
+
   return (
     <html lang="pt-BR" className={`${poppins.variable} ${plexMono.variable}`}>
       <body className="font-sans min-h-screen bg-vault-bg text-vault-text antialiased">
