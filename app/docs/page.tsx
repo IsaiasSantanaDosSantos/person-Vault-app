@@ -369,7 +369,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             <li><strong className="text-vault-text">Esqueci minha senha</strong> (da conta, por e-mail) — não afeta nem recupera a senha mestra.</li>
             <li><strong className="text-vault-text">Excluir todos os dados do cofre</strong> (confirmação por palavra-chave) — apaga senhas e perfil de criptografia, mantém a conta.</li>
             <li>Pedido de <strong className="text-vault-text">exclusão completa da conta</strong> por e-mail direto ao suporte.</li>
-            <li><strong className="text-vault-text">Autenticação em dois fatores (MFA/TOTP)</strong> — implementada, desativada por padrão (exige plano pago no Supabase). Ver seção 5.7.</li>
+            <li><strong className="text-vault-text">Autenticação em dois fatores (MFA/TOTP)</strong> — implementada e ativada. Ver seção 5.7.</li>
             <li>Sessão persiste ao recarregar — só a senha mestra (ou o MFA, se ativado) é pedido de novo.</li>
             <li>Botão de logoff (dentro do cofre e também nas etapas de senha mestra/MFA).</li>
             <li>Bloqueio automático do cofre após 5 minutos sem interação.</li>
@@ -441,13 +441,13 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>Excluir todos os dados do cofre também revoga qualquer compartilhamento ativo, por consistência.</li>
             </UL>
           </Sub>
-          <Sub title="5.7 Autenticação em dois fatores (MFA) — implementada, hoje desativada">
+          <Sub title="5.7 Autenticação em dois fatores (MFA) — implementada e ativada">
             <P>
               Detalhamento completo em <Code>MFA.md</Code>, na raiz do projeto. Resumo:
             </P>
             <UL>
               <li>Usa o MFA/TOTP nativo do Supabase Auth — o segredo do autenticador nunca é visto nem guardado por este app, só pelo Supabase internamente.</li>
-              <li>Controlado por uma única constante (<Code>lib/features.ts</Code> → <Code>MFA_ENABLED</Code>), hoje <Code>false</Code> porque o recurso exige o plano Pro do Supabase. Enquanto desativado, nenhuma chamada de MFA acontece em lugar nenhum do app.</li>
+              <li>Controlado por uma única constante (<Code>lib/features.ts</Code> → <Code>MFA_ENABLED</Code>, hoje <Code>true</Code>). Correção em relação ao que se achava antes: só o MFA por SMS exige o plano Pro do Supabase — o TOTP (o tipo usado aqui) já está disponível no plano gratuito.</li>
               <li>Decisão deliberada de <strong className="text-vault-text">não implementar códigos de backup próprios</strong>: o Supabase não expõe um jeito seguro de elevar a sessão pra "segundo fator validado" a partir de uma verificação nossa por fora do fluxo deles. A recomendação é cadastrar mais de um autenticador (a tela já suporta) e, se perder todos, pedir remoção manual do MFA pelo mesmo canal de e-mail já usado pra exclusão de conta.</li>
             </UL>
           </Sub>
@@ -468,7 +468,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             <UL>
               <li><strong className="text-vault-text">Nenhum teste automatizado</strong> (unitário, integração, e2e) — não há Jest, Playwright, Cypress ou similar configurado.</li>
               <li><strong className="text-vault-text">Não testei o fluxo real de login/criação de conta</strong> contra o projeto Supabase de produção, pra não criar dados de teste reais sem autorização.</li>
-              <li><strong className="text-vault-text">O fluxo de MFA nunca foi testado contra um Supabase real</strong> — o plano atual não suporta o recurso. O código segue a documentação oficial da API, mas sem validação ponta a ponta.</li>
+              <li><strong className="text-vault-text">O fluxo de MFA ainda não foi testado ponta a ponta contra o Supabase real</strong> — o código segue a documentação oficial da API, mas o cadastro/verificação de um autenticador de verdade precisa ser testado (ver "Próximo passo" em MFA.md).</li>
               <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros.</li>
               <li>Sem teste de carga/performance, nem em navegadores reais além do Chromium usado nas verificações.</li>
               <li>Sem teste do fluxo de instalação como PWA num dispositivo móvel real.</li>
@@ -649,7 +649,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
           </P>
           <OL>
             <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code>, os limites de tamanho, e agora também a tabela <Code>shared_items</Code> do compartilhamento — idempotente). Sem isso, compartilhar por link não funciona.</li>
-            <li>MFA (TOTP): código já pronto (ver <Code>MFA.md</Code>) — só falta o upgrade pro plano Pro do Supabase e trocar <Code>MFA_ENABLED</Code> pra <Code>true</Code>.</li>
+            <li>MFA (TOTP): ativado, mas ainda sem teste ponta a ponta — cadastre um autenticador de verdade e confirme o login (ver <Code>MFA.md</Code>).</li>
             <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
             <li>Configurar rate limiting / CAPTCHA no login e signup.</li>
             <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>

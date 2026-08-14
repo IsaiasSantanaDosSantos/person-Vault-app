@@ -157,7 +157,7 @@ Comprometer um link comprometido só expõe a senha daquele compartilhamento esp
 - **Esqueci minha senha** (da conta, por e-mail) — não afeta nem recupera a senha mestra, que continua sem recuperação possível por design.
 - **Excluir todos os dados do cofre** (com confirmação por palavra-chave) — apaga senhas e o perfil de criptografia, mantendo a conta de login.
 - **Pedido de exclusão completa da conta** — link de e-mail direto pro suporte, já que apagar a conta em si exige acesso ao painel do Supabase.
-- **Autenticação em dois fatores (MFA/TOTP)** — implementada, mas **desativada por padrão** (exige plano pago no Supabase). Ver [MFA.md](MFA.md).
+- **Autenticação em dois fatores (MFA/TOTP)** — implementada e **ativada**. Ver [MFA.md](MFA.md).
 - Sessão persiste ao recarregar a página — só a senha mestra é pedida de novo.
 - Botão de logoff (dentro do cofre e também na etapa de senha mestra/MFA).
 - Bloqueio automático do cofre após 5 minutos sem interação.
@@ -207,12 +207,12 @@ Cobertura de RLS na tabela `shared_items` (`supabase/schema.sql`):
 - Teto de 24h garantido por uma `constraint` na própria tabela (`expires_at <= created_at + interval '24 hours'`), não só na interface — mesmo manipulando a chamada, não dá pra criar um link que dure mais que isso.
 - Excluir todos os dados do cofre (`deleteAllData`) também revoga qualquer compartilhamento ativo daquele usuário, por consistência.
 
-### 5.7 Autenticação em dois fatores (MFA) — implementada, hoje desativada
+### 5.7 Autenticação em dois fatores (MFA) — implementada e ativada
 
 Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
 
 - Usa o MFA/TOTP nativo do Supabase Auth (`supabase.auth.mfa.*`) — o segredo do autenticador nunca é visto nem guardado por este app, só pelo Supabase internamente.
-- Controlado por uma única constante (`lib/features.ts` → `MFA_ENABLED`), hoje `false` porque o recurso exige o plano Pro do Supabase. Enquanto desativado, nenhuma chamada de MFA acontece em lugar nenhum do app — o botão "Duplo fator" fica visível, mas desativado.
+- Controlado por uma única constante (`lib/features.ts` → `MFA_ENABLED`, hoje `true`). Correção em relação ao que achávamos antes: só o **MFA por SMS** exige o plano Pro do Supabase — o **TOTP** (o tipo usado aqui) já está disponível no plano gratuito.
 - Decidimos **não implementar códigos de backup próprios**: o Supabase não expõe um jeito seguro de elevar a sessão pra "segundo fator validado" a partir de uma verificação nossa por fora do fluxo deles — só a verificação real, contra um fator cadastrado neles, faz isso. Em vez disso, a recomendação é cadastrar mais de um autenticador (a tela já suporta) e, no caso de perder todos, pedir remoção manual do MFA pelo mesmo canal de e-mail já usado pra exclusão de conta.
 
 ---
@@ -232,7 +232,7 @@ Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
 
 - **Nenhum teste automatizado** (unitário, de integração ou end-to-end) existe no projeto — não há Jest, Playwright, Cypress ou similar configurado. Toda verificação foi manual/exploratória.
 - **Não testei o fluxo real de login/criação de conta** contra o seu projeto Supabase de produção — isso criaria dados de teste reais na sua base de usuários, o que eu não faria sem pedir autorização primeiro.
-- **O fluxo de MFA nunca foi testado contra um Supabase real** — o plano atual do projeto não suporta o recurso. O código segue a documentação oficial da API, mas não tem validação end-to-end.
+- **O fluxo de MFA ainda não foi testado ponta a ponta contra o Supabase real** — o código segue a documentação oficial da API, mas o cadastro/verificação de um autenticador de verdade precisa ser testado por você (ver "Próximo passo" em [MFA.md](MFA.md)).
 - **Não houve teste de penetração (pentest)** formal, nem por ferramenta automatizada (ex: OWASP ZAP, Burp Suite) nem por terceiros independentes.
 - **Não houve teste de carga/performance**, nem teste em múltiplos navegadores reais (Safari, Firefox) além do Chromium usado nas verificações.
 - **Não houve teste do fluxo de instalação como PWA** num dispositivo móvel real.
@@ -341,7 +341,7 @@ Esta seção existe pra responder: **"o que faltaria pra transformar isso num pr
 Estas dependem de configuração no painel do Supabase ou de uma ação sua — não são coisas que o código sozinho resolve:
 
 1. **Rodar `supabase/schema.sql` novamente** no SQL Editor do Supabase (adiciona a coluna `iterations`, os limites de tamanho, e agora também a tabela `shared_items` do compartilhamento — idempotente, seguro rodar de novo). Sem isso, compartilhar uma senha por link não funciona.
-2. **MFA (TOTP):** o código já está pronto ([MFA.md](MFA.md)) — só falta o upgrade pro plano Pro do Supabase e trocar `MFA_ENABLED` pra `true` em `lib/features.ts` quando fizer sentido.
+2. **MFA (TOTP): ativado, mas ainda sem teste ponta a ponta.** Cadastre um autenticador de verdade e confirme que o login com o código funciona — ver "Próximo passo" em [MFA.md](MFA.md).
 3. **Habilitar "Leaked password protection"** em Authentication → Settings.
 4. **Configurar rate limiting / CAPTCHA** (hCaptcha ou Cloudflare Turnstile) no login e signup.
 5. **Redefinir sua senha mestra atual**, se quiser migrar seu cofre já existente de 250k pra 600k iterações de PBKDF2 (opcional).
