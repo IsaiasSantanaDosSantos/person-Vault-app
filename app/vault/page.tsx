@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { listItems, VaultItem } from "@/lib/vaultStore";
-import { getKey, clearKey } from "@/lib/keyStore";
-import PasswordCard from "@/components/PasswordCard";
-import PasswordFormModal, { EditingItem } from "@/components/PasswordFormModal";
-import DeleteAllDataModal from "@/components/DeleteAllDataModal";
-import ShareModal from "@/components/ShareModal";
-import ActiveSharesModal from "@/components/ActiveSharesModal";
-import MfaSettingsModal from "@/components/MfaSettingsModal";
-import { MFA_ENABLED } from "@/lib/features";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
+import { listItems, VaultItem } from '@/lib/vaultStore';
+import { getKey, clearKey } from '@/lib/keyStore';
+import PasswordCard from '@/components/PasswordCard';
+import PasswordFormModal, { EditingItem } from '@/components/PasswordFormModal';
+import DeleteAllDataModal from '@/components/DeleteAllDataModal';
+import ShareModal from '@/components/ShareModal';
+import ActiveSharesModal from '@/components/ActiveSharesModal';
+import MfaSettingsModal from '@/components/MfaSettingsModal';
+import { MFA_ENABLED } from '@/lib/features';
 
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutos sem interação tranca o cofre
 
@@ -19,10 +19,13 @@ export default function VaultPage() {
   const router = useRouter();
   const [items, setItems] = useState<VaultItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<EditingItem | null>(null);
-  const [sharing, setSharing] = useState<{ item: VaultItem; password: string } | null>(null);
+  const [sharing, setSharing] = useState<{
+    item: VaultItem;
+    password: string;
+  } | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [showActiveShares, setShowActiveShares] = useState(false);
   const [showMfaSettings, setShowMfaSettings] = useState(false);
@@ -32,13 +35,13 @@ export default function VaultPage() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) {
-        router.replace("/login");
+        router.replace('/login');
         return;
       }
       // Se a chave não está em memória (ex: página recarregada),
       // manda voltar pro login pra redigitar a senha mestra.
       if (!getKey()) {
-        router.replace("/login");
+        router.replace('/login');
         return;
       }
       const uid = data.session.user.id;
@@ -52,13 +55,13 @@ export default function VaultPage() {
   async function handleLogout() {
     clearKey();
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace('/login');
   }
 
   async function handleAllDataDeleted() {
     clearKey();
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace('/login');
   }
 
   // Trava o cofre (só a chave em memória, não a sessão da conta) depois
@@ -69,7 +72,7 @@ export default function VaultPage() {
 
     function lock() {
       clearKey();
-      router.replace("/login");
+      router.replace('/login');
     }
 
     function resetTimer() {
@@ -77,7 +80,13 @@ export default function VaultPage() {
       timer = setTimeout(lock, INACTIVITY_LIMIT_MS);
     }
 
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    const events = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'touchstart',
+      'scroll',
+    ];
     events.forEach((e) => window.addEventListener(e, resetTimer));
     resetTimer();
 
@@ -90,7 +99,7 @@ export default function VaultPage() {
   const filtered = items.filter(
     (i) =>
       i.label.toLowerCase().includes(search.toLowerCase()) ||
-      (i.username ?? "").toLowerCase().includes(search.toLowerCase())
+      (i.username ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
   if (loading) {
@@ -105,7 +114,13 @@ export default function VaultPage() {
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 bg-vault-bg/90 backdrop-blur border-b border-vault-border px-4 py-3 flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
-          <img src="/icons/icon-192.png" alt="" width={24} height={24} className="w-6 h-6 rounded-md" />
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            width={24}
+            height={24}
+            className="w-6 h-6 rounded-md"
+          />
           <h1 className="font-semibold text-sm tracking-tight">Cofre</h1>
         </div>
         <div className="flex items-center gap-3">
@@ -118,7 +133,7 @@ export default function VaultPage() {
           <button
             onClick={() => MFA_ENABLED && setShowMfaSettings(true)}
             disabled={!MFA_ENABLED}
-            title={MFA_ENABLED ? undefined : "Disponível no momento"}
+            title={MFA_ENABLED ? undefined : 'Indisponível no momento'}
             className="text-xs text-vault-muted hover:text-vault-text transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:cursor-not-allowed"
           >
             Duplo fator
@@ -129,7 +144,10 @@ export default function VaultPage() {
           >
             Excluir dados
           </button>
-          <button onClick={handleLogout} className="text-xs text-vault-muted hover:text-vault-text transition">
+          <button
+            onClick={handleLogout}
+            className="text-xs text-vault-muted hover:text-vault-text transition"
+          >
             Sair
           </button>
         </div>
@@ -147,14 +165,18 @@ export default function VaultPage() {
       <div className="px-4 space-y-2">
         {filtered.length === 0 && (
           <p className="text-center text-vault-muted text-sm py-12">
-            {items.length === 0 ? "Nenhuma senha guardada ainda." : "Nada encontrado."}
+            {items.length === 0
+              ? 'Nenhuma senha guardada ainda.'
+              : 'Nada encontrado.'}
           </p>
         )}
         {filtered.map((item) => (
           <PasswordCard
             key={item.id}
             item={item}
-            onDeleted={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
+            onDeleted={(id) =>
+              setItems((prev) => prev.filter((i) => i.id !== id))
+            }
             onEdit={(item, password) => setEditing({ item, password })}
             onShare={(item, password) => setSharing({ item, password })}
           />
@@ -181,7 +203,7 @@ export default function VaultPage() {
             setItems((prev) =>
               editing
                 ? prev.map((i) => (i.id === item.id ? item : i))
-                : [item, ...prev]
+                : [item, ...prev],
             );
           }}
         />
@@ -205,7 +227,10 @@ export default function VaultPage() {
       )}
 
       {showActiveShares && userId && (
-        <ActiveSharesModal userId={userId} onClose={() => setShowActiveShares(false)} />
+        <ActiveSharesModal
+          userId={userId}
+          onClose={() => setShowActiveShares(false)}
+        />
       )}
 
       {MFA_ENABLED && showMfaSettings && (
