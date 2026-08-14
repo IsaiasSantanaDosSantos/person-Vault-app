@@ -145,7 +145,7 @@ export default function DocsPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
         <p className="text-xs uppercase tracking-wide text-vault-muted mb-2">
-          Documentação técnica · v1.0 · 2026-08-13
+          Documentação técnica · v1.1 · 2026-08-14
         </p>
         <h1 className="text-2xl font-semibold text-vault-text mb-4">
           Documentação Técnica — Cofre de Senhas Pessoal
@@ -155,6 +155,13 @@ export default function DocsPage() {
           testado, o que foi auditado e — a pergunta que mais importa — qual o nível de senha que
           é seguro guardar nela.
         </P>
+        <p className="text-xs text-vault-muted mb-6">
+          Não é técnico? Veja o{" "}
+          <a href="/ajuda" className="text-vault-steel hover:text-vault-steelBright">
+            guia de uso passo a passo
+          </a>
+          , com prints de tela.
+        </p>
 
         <div className="bg-vault-panel border border-vault-border rounded-lg p-4 mb-8">
           <p className="text-xs font-medium text-vault-text mb-2">Sumário</p>
@@ -306,6 +313,12 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>A senha mestra digitada + o salt + o número de iterações salvo (por perfil, não uma constante global) geram a chave AES via PBKDF2.</li>
               <li>Essa chave tenta decifrar o verificador. Se der certo, a chave fica em memória e o cofre abre; se falhar, mostra "Senha mestra incorreta" sem revelar mais nada.</li>
             </OL>
+            <P>
+              Se o MFA estiver ativado (<Code>lib/features.ts</Code> → <Code>MFA_ENABLED</Code>) e
+              o usuário tiver um fator cadastrado, uma etapa extra entra entre o passo 3 e o passo
+              4: o app pede o código de 6 dígitos do autenticador antes de buscar o perfil de
+              criptografia. Ver seção 5.7.
+            </P>
           </Sub>
 
           <Sub title="3.4 Fluxo de leitura/escrita de um item">
@@ -314,6 +327,29 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li><strong className="text-vault-text">Listar:</strong> a lista trazida contém só ciphertext — nada é decifrado até o usuário pedir.</li>
               <li><strong className="text-vault-text">Ver/copiar:</strong> só nesse momento o item específico é decifrado, sob demanda, usando a chave em memória.</li>
             </UL>
+          </Sub>
+
+          <Sub title="3.5 Fluxo de compartilhamento de uma senha por link">
+            <P>
+              Diferente do resto do app, aqui existe uma exceção deliberada ao "zero-knowledge":
+              pra alguém sem a senha mestra conseguir ler uma senha específica através de um link,
+              é preciso que essa senha específica seja legível sem a senha mestra — mas só ela, só
+              enquanto o link durar.
+            </P>
+            <OL>
+              <li>Ao compartilhar, o navegador gera uma chave AES-256 nova e aleatória (<Code>lib/shareCrypto.ts</Code>), sem nenhuma relação com a senha mestra ou com a chave do cofre.</li>
+              <li>A senha é cifrada de novo com essa chave nova.</li>
+              <li>O ciphertext, o rótulo, o usuário (texto puro) e a data de expiração vão pra uma tabela nova (<Code>shared_items</Code>) — nunca a chave.</li>
+              <li>A chave vai só no fragmento da URL (depois do <Code>#</Code>), que o navegador nunca envia a nenhum servidor: <Code>.../share/ID#k=CHAVE</Code>.</li>
+              <li>Quem abre o link (<Code>app/share/[id]/page.tsx</Code>, pública, sem login) busca o registro pelo ID e decifra no próprio navegador, com a chave que veio na URL.</li>
+              <li>Expiração é garantida em dois lugares: na interface (10 min a 24h) e no banco (constraint na tabela, teto de 24h independente do que o cliente mandar).</li>
+              <li>Revogar simplesmente apaga a linha — sem ela, o link para de funcionar, mesmo antes de expirar.</li>
+            </OL>
+            <P>
+              Comprometer um link comprometido só expõe a senha daquele compartilhamento
+              específico, só até expirar ou ser revogado — nunca a senha mestra, a chave do cofre,
+              nem qualquer outro item.
+            </P>
           </Sub>
         </Section>
 
@@ -328,10 +364,17 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             <li><strong className="text-vault-text">Excluir</strong> um item (com confirmação).</li>
             <li><strong className="text-vault-text">Ver</strong> a senha de um item, com ocultação automática após 20s.</li>
             <li><strong className="text-vault-text">Copiar</strong> a senha pra área de transferência, com limpeza automática após 30s.</li>
-            <li>Sessão persiste ao recarregar — só a senha mestra é pedida de novo.</li>
-            <li>Botão de logoff (dentro do cofre e também na etapa de senha mestra).</li>
+            <li><strong className="text-vault-text">Mostrar/ocultar</strong> o que está sendo digitado em qualquer campo de senha (ícone de olho), inclusive na senha da conta e na senha mestra.</li>
+            <li><strong className="text-vault-text">Compartilhar uma senha por link</strong> — chave própria por link, expiração obrigatória de até 24h escolhida por quem compartilha, revogável a qualquer momento. Quem recebe não precisa de conta nem vê a senha em texto, só copia.</li>
+            <li><strong className="text-vault-text">Esqueci minha senha</strong> (da conta, por e-mail) — não afeta nem recupera a senha mestra.</li>
+            <li><strong className="text-vault-text">Excluir todos os dados do cofre</strong> (confirmação por palavra-chave) — apaga senhas e perfil de criptografia, mantém a conta.</li>
+            <li>Pedido de <strong className="text-vault-text">exclusão completa da conta</strong> por e-mail direto ao suporte.</li>
+            <li><strong className="text-vault-text">Autenticação em dois fatores (MFA/TOTP)</strong> — implementada, desativada por padrão (exige plano pago no Supabase). Ver seção 5.7.</li>
+            <li>Sessão persiste ao recarregar — só a senha mestra (ou o MFA, se ativado) é pedido de novo.</li>
+            <li>Botão de logoff (dentro do cofre e também nas etapas de senha mestra/MFA).</li>
             <li>Bloqueio automático do cofre após 5 minutos sem interação.</li>
             <li>Instalável como PWA (ícone, splash screen, tela cheia) no Android/iOS/desktop.</li>
+            <li>Meta tags de compartilhamento (Open Graph/Twitter) — o link do app mostra título, descrição e ícone ao ser compartilhado.</li>
           </UL>
         </Section>
 
@@ -389,6 +432,25 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               ]}
             />
           </Sub>
+          <Sub title="5.6 Compartilhamento de senha por link">
+            <P>Cobertura de RLS na tabela <Code>shared_items</Code>:</P>
+            <UL>
+              <li>O dono só mexe nos próprios compartilhamentos (<Code>auth.uid() = owner_id</Code>) — cria, lista (inclusive expirados) e revoga quando quiser.</li>
+              <li>Uma política separada permite leitura pública só enquanto <Code>expires_at &gt; now()</Code> — a única exceção "pública" do banco inteiro, necessária porque quem abre o link não está autenticado como o dono. O segredo real não é a sessão, é o UUID do link (praticamente impossível de adivinhar) somado à chave que só existe na URL.</li>
+              <li>Teto de 24h garantido por uma constraint na própria tabela, não só na interface — mesmo manipulando a chamada, não dá pra criar um link que dure mais que isso.</li>
+              <li>Excluir todos os dados do cofre também revoga qualquer compartilhamento ativo, por consistência.</li>
+            </UL>
+          </Sub>
+          <Sub title="5.7 Autenticação em dois fatores (MFA) — implementada, hoje desativada">
+            <P>
+              Detalhamento completo em <Code>MFA.md</Code>, na raiz do projeto. Resumo:
+            </P>
+            <UL>
+              <li>Usa o MFA/TOTP nativo do Supabase Auth — o segredo do autenticador nunca é visto nem guardado por este app, só pelo Supabase internamente.</li>
+              <li>Controlado por uma única constante (<Code>lib/features.ts</Code> → <Code>MFA_ENABLED</Code>), hoje <Code>false</Code> porque o recurso exige o plano Pro do Supabase. Enquanto desativado, nenhuma chamada de MFA acontece em lugar nenhum do app.</li>
+              <li>Decisão deliberada de <strong className="text-vault-text">não implementar códigos de backup próprios</strong>: o Supabase não expõe um jeito seguro de elevar a sessão pra "segundo fator validado" a partir de uma verificação nossa por fora do fluxo deles. A recomendação é cadastrar mais de um autenticador (a tela já suporta) e, se perder todos, pedir remoção manual do MFA pelo mesmo canal de e-mail já usado pra exclusão de conta.</li>
+            </UL>
+          </Sub>
         </Section>
 
         <Section id="testes" number="6" title="Testes realizados">
@@ -397,13 +459,16 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li><Code>npm run build</Code> (compilação de produção completa — TypeScript, lint, geração de páginas estáticas) validado sem erros após cada rodada de mudanças.</li>
               <li><Code>npm audit</Code> rodado antes e depois da atualização do Next.js, confirmando a eliminação da CVE crítica e das falhas altas aplicáveis a este app.</li>
               <li>Verificação manual no navegador: ausência de erros de console, ausência de violações de CSP, requisições retornando 200 OK, estrutura de acessibilidade da tela de login, layout do modal de senha em diferentes estados.</li>
-              <li>Teste isolado do componente de edição numa rota temporária sem autenticação, especificamente pra confirmar a correção do botão "Gerar" saltando pra fora do modal — rota removida depois do teste.</li>
+              <li>Teste isolado de componentes (modal de edição, cabeçalho do cofre com 4 itens) em rotas temporárias sem autenticação, pra confirmar correções de layout — rotas removidas depois de cada teste.</li>
+              <li>Lógica de criptografia do compartilhamento validada isoladamente no console do navegador: gerar chave → cifrar → exportar em base64url → reimportar só a partir da string → decifrar — confirmado que bate com o texto original.</li>
+              <li>Página pública <Code>/share/[id]</Code> testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar.</li>
             </UL>
           </Sub>
           <Sub title="O que NÃO foi feito">
             <UL>
               <li><strong className="text-vault-text">Nenhum teste automatizado</strong> (unitário, integração, e2e) — não há Jest, Playwright, Cypress ou similar configurado.</li>
               <li><strong className="text-vault-text">Não testei o fluxo real de login/criação de conta</strong> contra o projeto Supabase de produção, pra não criar dados de teste reais sem autorização.</li>
+              <li><strong className="text-vault-text">O fluxo de MFA nunca foi testado contra um Supabase real</strong> — o plano atual não suporta o recurso. O código segue a documentação oficial da API, mas sem validação ponta a ponta.</li>
               <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros.</li>
               <li>Sem teste de carga/performance, nem em navegadores reais além do Chromium usado nas verificações.</li>
               <li>Sem teste do fluxo de instalação como PWA num dispositivo móvel real.</li>
@@ -428,10 +493,16 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
                 "Confirmado que a sessão persistente não enfraquece a segurança; RLS de UPDATE verificada; nenhum novo achado de risco",
               ],
               [
-                "Documentação",
+                "v2.1",
                 "2026-08-13",
                 "Correção de layout (overflow do botão \"Gerar\")",
                 "Corrigido com min-w-0 — puramente visual, sem implicação de segurança",
+              ],
+              [
+                "v2.2",
+                "2026-08-14",
+                "Compartilhamento de senha por link, MFA (feature-flagged), recuperação de senha, exclusão de dados/conta",
+                "Revisão de segurança feita durante a própria implementação: chave de compartilhamento com escopo confirmado, teto de 24h em duas camadas, MFA isolado atrás de um flag sem chamadas em produção enquanto desativado",
               ],
             ]}
           />
@@ -577,8 +648,8 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             coisas que o código sozinho resolve:
           </P>
           <OL>
-            <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code> e os limites de tamanho — idempotente).</li>
-            <li>Habilitar MFA (TOTP) em Authentication → Providers.</li>
+            <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code>, os limites de tamanho, e agora também a tabela <Code>shared_items</Code> do compartilhamento — idempotente). Sem isso, compartilhar por link não funciona.</li>
+            <li>MFA (TOTP): código já pronto (ver <Code>MFA.md</Code>) — só falta o upgrade pro plano Pro do Supabase e trocar <Code>MFA_ENABLED</Code> pra <Code>true</Code>.</li>
             <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
             <li>Configurar rate limiting / CAPTCHA no login e signup.</li>
             <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>
@@ -588,21 +659,34 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
         <Section id="estrutura" number="12" title="Estrutura de arquivos">
           <Block>{`vault-app/
 ├── app/
-│   ├── page.tsx                 # Redireciona pra /login ou /vault conforme sessão
-│   ├── layout.tsx                # Layout raiz, fontes (Poppins/IBM Plex Mono), metadata PWA
+│   ├── page.tsx                  # Redireciona pra /login ou /vault conforme sessão
+│   ├── layout.tsx                # Layout raiz, fontes, metadata PWA/Open Graph
 │   ├── icon.png, apple-icon.png, favicon.ico   # Ícones (convenção Next.js App Router)
-│   ├── login/page.tsx            # Login, criação de conta, senha mestra
+│   ├── login/page.tsx            # Login, criação de conta, senha mestra, MFA, esqueci a senha
+│   ├── reset-password/page.tsx   # Definir nova senha da conta (link vindo do e-mail)
 │   ├── vault/page.tsx            # Tela principal do cofre
-│   └── docs/page.tsx             # Esta documentação, publicada em /docs
+│   ├── share/[id]/page.tsx       # Página pública de quem recebe um link compartilhado
+│   ├── docs/page.tsx             # Esta documentação, publicada em /docs
+│   └── ajuda/page.tsx            # Guia de uso pra quem não é técnico, publicado em /ajuda
 ├── components/
-│   ├── PasswordCard.tsx          # Card de um item (ver/copiar/editar/excluir)
+│   ├── PasswordCard.tsx          # Card de um item (ver/copiar/editar/excluir/compartilhar)
 │   ├── PasswordFormModal.tsx     # Modal de criar OU editar um item
+│   ├── PasswordInput.tsx         # Campo de senha com ícone de olho (mostrar/ocultar)
+│   ├── DeleteAllDataModal.tsx    # Confirmação de excluir todos os dados do cofre
+│   ├── ShareModal.tsx            # Gerar/copiar/revogar um link de compartilhamento
+│   ├── ActiveSharesModal.tsx     # Lista e revoga links de compartilhamento ativos
+│   ├── MfaSettingsModal.tsx      # Cadastrar/remover autenticadores (MFA)
 │   └── ServiceWorkerRegister.tsx # Registra o service worker do PWA
 ├── lib/
-│   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (toda a criptografia)
+│   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (criptografia do cofre)
+│   ├── shareCrypto.ts            # Chave nova e descartável por compartilhamento
 │   ├── passwordStrength.ts       # Validação de força da senha mestra
 │   ├── keyStore.ts               # Chave derivada em memória (nunca em disco)
 │   ├── vaultStore.ts             # CRUD contra o Supabase (vault_profiles, vault_items)
+│   ├── shareStore.ts             # CRUD contra o Supabase (shared_items)
+│   ├── mfaStore.ts               # Camada sobre supabase.auth.mfa.*
+│   ├── features.ts               # Interruptor MFA_ENABLED
+│   ├── constants.ts              # E-mail de suporte pra pedidos de exclusão de conta
 │   └── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
 ├── supabase/
 │   └── schema.sql                # Tabelas, RLS, constraints (rodar no SQL Editor)
@@ -612,11 +696,13 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
 │   ├── manifest.json             # Manifest do PWA (cores, ícones, screenshots)
 │   ├── sw.js                     # Service worker
 │   ├── icons/                    # Ícones do manifest (192px, 512px)
-│   └── screenshots/               # Screenshots do manifest
+│   ├── screenshots/               # Screenshots do manifest
+│   └── guide/                    # Prints usados no guia de uso (/ajuda)
 ├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
-├── DOCUMENTACAO.md               # Versão em markdown deste documento
-└── README.md                     # Guia de instalação/deploy`}</Block>
+├── MFA.md                        # O que foi feito sobre Duplo fator e como ativar
+├── DOCUMENTACAO.md               # Guia rápido de instalação/deploy
+└── README.md                     # Documentação técnica completa (este conteúdo, em markdown)`}</Block>
         </Section>
       </div>
     </div>

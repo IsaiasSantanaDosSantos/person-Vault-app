@@ -452,6 +452,11 @@ export default function LoginPage() {
 
         <div className="text-center mt-6 space-y-1.5">
           <p>
+            <Link href="/ajuda" className="text-xs text-vault-steel hover:text-vault-steelBright transition">
+              Como usar o Cofre (guia passo a passo)
+            </Link>
+          </p>
+          <p>
             <Link href="/docs" className="text-xs text-vault-muted hover:text-vault-text transition">
               Documentação técnica
             </Link>

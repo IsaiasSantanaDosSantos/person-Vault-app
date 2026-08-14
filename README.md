@@ -8,6 +8,8 @@ Este documento reúne, num só lugar, o que a aplicação é, como foi construí
 
 - [AUDITORIA_SEGURANCA.md](AUDITORIA_SEGURANCA.md) — primeira auditoria completa (arquitetura, criptografia, RLS, dependências).
 - [AUDITORIA_SEGURANCA_V2.md](AUDITORIA_SEGURANCA_V2.md) — segunda auditoria (sessão persistente, edição de itens, resposta direta sobre "100% seguro").
+- [MFA.md](MFA.md) — o que foi implementado sobre autenticação em dois fatores e como ativar quando fizer sentido.
+- [Guia para quem não é técnico](/ajuda) — passo a passo com prints de como usar o cofre no dia a dia.
 
 ---
 
@@ -115,11 +117,27 @@ Hoje é um projeto de uso pessoal, construído com o mesmo rigor técnico que se
 5. A senha mestra digitada + o `salt` do perfil + o número de `iterations` salvo (importante: **cada perfil usa seu próprio número de iterações**, não uma constante global — ver seção 5.3) geram a chave AES via PBKDF2.
 6. Essa chave tenta decifrar o `verifier` (uma string fixa conhecida, `"vault-check-ok"`). Se decifrar corretamente, a senha mestra está certa; a chave fica em memória (`lib/keyStore.ts`) e o usuário entra no cofre. Se falhar, mostra "Senha mestra incorreta" — sem revelar mais nada sobre o motivo.
 
+Se o MFA estiver ativado (`lib/features.ts` → `MFA_ENABLED`) e o usuário tiver um fator cadastrado, uma etapa extra entra **entre o passo 3 e o passo 4**: o app pede o código de 6 dígitos do autenticador antes de buscar o perfil de criptografia. Ver seção 5.7.
+
 ### 3.4 Fluxo de leitura/escrita de um item
 
 - **Criar/editar:** o texto da senha é cifrado no navegador (`encryptText`, gera um IV aleatório novo a cada operação) e só o par `{iv, ciphertext}` em base64 é enviado ao Supabase.
 - **Listar:** a lista trazida do Supabase contém só ciphertext — nada é decifrado até o usuário pedir.
 - **Ver/copiar:** só nesse momento o item específico é decifrado, sob demanda, usando a chave em memória.
+
+### 3.5 Fluxo de compartilhamento de uma senha por link
+
+Diferente do resto do app, aqui existe uma exceção deliberada ao "zero-knowledge": pra alguém sem a senha mestra conseguir ler uma senha específica através de um link, é preciso que ESSA senha específica seja legível sem a senha mestra — mas só ela, só enquanto o link durar.
+
+1. Ao compartilhar, o navegador gera uma **chave AES-256 nova e aleatória** (`lib/shareCrypto.ts`), sem nenhuma relação com a senha mestra ou com a chave do cofre.
+2. A senha é cifrada de novo com essa chave nova (`encryptText`, reaproveitado de `lib/crypto.ts`).
+3. O ciphertext, o rótulo, o usuário (texto puro) e a data de expiração vão pra uma tabela nova (`shared_items`) — nunca a chave.
+4. A chave vai só no **fragmento da URL** (depois do `#`), que o navegador nunca envia a nenhum servidor: `.../share/ID#k=CHAVE`.
+5. Quem abre o link (`app/share/[id]/page.tsx`, pública, sem login) busca o registro pelo ID e decifra no próprio navegador, usando a chave que veio na URL.
+6. Expiração é garantida em dois lugares: na interface (opções de 10 min a 24h) e no banco (`constraint` na tabela, teto de 24h independente do que o cliente mandar).
+7. Revogação (`revokeShare`) simplesmente apaga a linha — sem a linha, o link para de funcionar, mesmo antes de expirar.
+
+Comprometer um link comprometido só expõe a senha daquele compartilhamento específico, só até expirar ou ser revogado — nunca a senha mestra, a chave do cofre, nem qualquer outro item.
 
 ---
 
@@ -130,14 +148,21 @@ Hoje é um projeto de uso pessoal, construído com o mesmo rigor técnico que se
 - Destravar o cofre com a senha mestra em sessões seguintes.
 - Listar, buscar (por serviço ou usuário) os itens salvos.
 - **Adicionar** um novo item (serviço, usuário opcional, senha — com gerador de senha aleatória embutido).
-- **Editar** um item existente (novo nesta rodada — reencriptografa com IV novo ao salvar).
+- **Editar** um item existente (reencriptografa com IV novo ao salvar).
 - **Excluir** um item (com confirmação).
 - **Ver** a senha de um item (com ocultação automática após 20s).
 - **Copiar** a senha pra área de transferência (com limpeza automática após 30s).
+- **Mostrar/ocultar** o que está sendo digitado em qualquer campo de senha (ícone de olho), inclusive na senha da conta e na senha mestra.
+- **Compartilhar uma senha por link** — gera um link único (chave própria, sem relação com a senha mestra), com expiração obrigatória de até 24h escolhida por quem compartilha, revogável a qualquer momento. Quem recebe o link não precisa ter conta nem ver a senha em texto — só copiar.
+- **Esqueci minha senha** (da conta, por e-mail) — não afeta nem recupera a senha mestra, que continua sem recuperação possível por design.
+- **Excluir todos os dados do cofre** (com confirmação por palavra-chave) — apaga senhas e o perfil de criptografia, mantendo a conta de login.
+- **Pedido de exclusão completa da conta** — link de e-mail direto pro suporte, já que apagar a conta em si exige acesso ao painel do Supabase.
+- **Autenticação em dois fatores (MFA/TOTP)** — implementada, mas **desativada por padrão** (exige plano pago no Supabase). Ver [MFA.md](MFA.md).
 - Sessão persiste ao recarregar a página — só a senha mestra é pedida de novo.
-- Botão de logoff (dentro do cofre e também na etapa de senha mestra).
+- Botão de logoff (dentro do cofre e também na etapa de senha mestra/MFA).
 - Bloqueio automático do cofre após 5 minutos sem interação.
 - Instalável como PWA (ícone, splash screen, tela cheia) no Android/iOS/desktop.
+- Meta tags de compartilhamento (Open Graph/Twitter) — link do app mostra título, descrição e ícone ao ser compartilhado em redes/mensageiros.
 
 ---
 
@@ -173,6 +198,23 @@ Perfis criados originalmente usam 250.000 iterações; perfis criados após a co
 | Nome do serviço (ex: "Gmail") e usuário/e-mail salvos | Sim, em texto puro (decisão deliberada — não são segredos críticos, e ficam assim visíveis pra permitir listar/buscar sem decifrar tudo o tempo todo) |
 | A senha de cada item                                  | **Nunca em texto puro** — só `{iv, ciphertext}`                                                                                                       |
 
+### 5.6 Compartilhamento de senha por link
+
+Cobertura de RLS na tabela `shared_items` (`supabase/schema.sql`):
+
+- O dono só mexe nos próprios compartilhamentos (`auth.uid() = owner_id`) — cria, lista (inclusive expirados, pra ver o histórico) e revoga quando quiser.
+- Uma política separada permite leitura pública **só enquanto `expires_at > now()`** — é a única exceção "pública" do banco inteiro, necessária porque quem abre o link não está autenticado como o dono. O segredo real não é a sessão, é o UUID do link (praticamente impossível de adivinhar) somado à chave que só existe na URL.
+- Teto de 24h garantido por uma `constraint` na própria tabela (`expires_at <= created_at + interval '24 hours'`), não só na interface — mesmo manipulando a chamada, não dá pra criar um link que dure mais que isso.
+- Excluir todos os dados do cofre (`deleteAllData`) também revoga qualquer compartilhamento ativo daquele usuário, por consistência.
+
+### 5.7 Autenticação em dois fatores (MFA) — implementada, hoje desativada
+
+Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
+
+- Usa o MFA/TOTP nativo do Supabase Auth (`supabase.auth.mfa.*`) — o segredo do autenticador nunca é visto nem guardado por este app, só pelo Supabase internamente.
+- Controlado por uma única constante (`lib/features.ts` → `MFA_ENABLED`), hoje `false` porque o recurso exige o plano Pro do Supabase. Enquanto desativado, nenhuma chamada de MFA acontece em lugar nenhum do app — o botão "Duplo fator" fica visível, mas desativado.
+- Decidimos **não implementar códigos de backup próprios**: o Supabase não expõe um jeito seguro de elevar a sessão pra "segundo fator validado" a partir de uma verificação nossa por fora do fluxo deles — só a verificação real, contra um fator cadastrado neles, faz isso. Em vez disso, a recomendação é cadastrar mais de um autenticador (a tela já suporta) e, no caso de perder todos, pedir remoção manual do MFA pelo mesmo canal de e-mail já usado pra exclusão de conta.
+
 ---
 
 ## 6. Testes realizados
@@ -182,12 +224,15 @@ Perfis criados originalmente usam 250.000 iterações; perfis criados após a co
 - `npm run build` (compilação de produção completa — TypeScript, lint do Next.js, geração de páginas estáticas) rodado e validado **sem erros** após cada rodada de mudanças (correções de segurança, rebranding, sessão persistente, edição de itens, correção do overflow do botão "Gerar").
 - `npm audit` rodado antes e depois da atualização do Next.js, confirmando a eliminação da CVE crítica e das falhas altas aplicáveis a este app.
 - Verificação manual no navegador (via ferramentas de automação) de: carregamento sem erros de console, ausência de violações de CSP, requisições de rede retornando `200 OK` (ícones, fontes, chunks), estrutura da árvore de acessibilidade da tela de login (confirmando a troca do ícone), e o layout do modal de editar/adicionar senha em diferentes estados (com e sem a correção do `min-w-0`).
-- Teste isolado do componente `PasswordFormModal` numa rota temporária (sem autenticação), criado especificamente pra confirmar visualmente a correção do botão "Gerar" saltando pra fora do modal — a rota foi **removida** depois do teste, não faz parte do app.
+- Teste isolado de componentes (`PasswordFormModal`, cabeçalho do cofre com 4 itens) em rotas temporárias sem autenticação, pra confirmar visualmente correções de layout (overflow do botão "Gerar", largura do cabeçalho em 375px) — as rotas foram **removidas** depois de cada teste, não fazem parte do app.
+- Lógica de criptografia do compartilhamento (`lib/shareCrypto.ts`) validada isoladamente no console do navegador: gerar chave → cifrar → exportar a chave em base64url → reimportar só a partir da string → decifrar — confirmado que bate exatamente com o texto original.
+- Página pública `/share/[id]` testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar (também serviu pra confirmar que a tabela `shared_items` precisa da migração do `schema.sql` — sem ela, o mesmo erro genérico aparece).
 
 **O que NÃO foi feito (limitações do processo de teste):**
 
 - **Nenhum teste automatizado** (unitário, de integração ou end-to-end) existe no projeto — não há Jest, Playwright, Cypress ou similar configurado. Toda verificação foi manual/exploratória.
 - **Não testei o fluxo real de login/criação de conta** contra o seu projeto Supabase de produção — isso criaria dados de teste reais na sua base de usuários, o que eu não faria sem pedir autorização primeiro.
+- **O fluxo de MFA nunca foi testado contra um Supabase real** — o plano atual do projeto não suporta o recurso. O código segue a documentação oficial da API, mas não tem validação end-to-end.
 - **Não houve teste de penetração (pentest)** formal, nem por ferramenta automatizada (ex: OWASP ZAP, Burp Suite) nem por terceiros independentes.
 - **Não houve teste de carga/performance**, nem teste em múltiplos navegadores reais (Safari, Firefox) além do Chromium usado nas verificações.
 - **Não houve teste do fluxo de instalação como PWA** num dispositivo móvel real.
@@ -200,7 +245,8 @@ Perfis criados originalmente usam 250.000 iterações; perfis criados após a co
 | ------------------------------- | ---------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [v1](AUDITORIA_SEGURANCA.md)    | 2026-08-13 | Arquitetura completa: criptografia, RLS, dependências, cabeçalhos HTTP, força de senha | 5 achados de prioridade Alta e 4 de Média corrigidos em código; itens de configuração do Supabase (MFA, leaked password protection, rate limiting) documentados como pendentes                                                                                |
 | [v2](AUDITORIA_SEGURANCA_V2.md) | 2026-08-13 | Mudanças pós-v1: sessão persistente, botão de logoff, edição de itens, ícone de marca  | Confirmado que a sessão persistente não enfraquece a segurança (a fronteira real continua sendo a chave derivada da senha mestra); RLS de `UPDATE` verificada contra a documentação oficial do Postgres antes de declarar segura; nenhum novo achado de risco |
-| Esta rodada (documentação)      | 2026-08-13 | Correção de layout (overflow do botão "Gerar")                                         | Corrigido com `min-w-0` no input — sem qualquer implicação de segurança, é puramente visual                                                                                                                                                                   |
+| v2.1                            | 2026-08-13 | Correção de layout (overflow do botão "Gerar")                                         | Corrigido com `min-w-0` no input — sem qualquer implicação de segurança, é puramente visual                                                                                                                                                                   |
+| v2.2 (esta rodada)               | 2026-08-14 | Compartilhamento de senha por link, MFA (feature-flagged), recuperação de senha da conta, exclusão de dados/conta | Revisão de segurança feita durante a própria implementação (não um relatório separado): chave de compartilhamento nova por link com escopo confirmado, teto de 24h garantido em duas camadas, MFA isolado atrás de um flag sem nenhuma chamada em produção enquanto desativado |
 
 **Achados corrigidos ao longo das duas auditorias (resumo):**
 
@@ -294,8 +340,8 @@ Esta seção existe pra responder: **"o que faltaria pra transformar isso num pr
 
 Estas dependem de configuração no painel do Supabase ou de uma ação sua — não são coisas que o código sozinho resolve:
 
-1. **Rodar `supabase/schema.sql` novamente** no SQL Editor do Supabase (adiciona a coluna `iterations` e os limites de tamanho — idempotente, seguro rodar de novo).
-2. **Habilitar MFA (TOTP)** em Authentication → Providers.
+1. **Rodar `supabase/schema.sql` novamente** no SQL Editor do Supabase (adiciona a coluna `iterations`, os limites de tamanho, e agora também a tabela `shared_items` do compartilhamento — idempotente, seguro rodar de novo). Sem isso, compartilhar uma senha por link não funciona.
+2. **MFA (TOTP):** o código já está pronto ([MFA.md](MFA.md)) — só falta o upgrade pro plano Pro do Supabase e trocar `MFA_ENABLED` pra `true` em `lib/features.ts` quando fizer sentido.
 3. **Habilitar "Leaked password protection"** em Authentication → Settings.
 4. **Configurar rate limiting / CAPTCHA** (hCaptcha ou Cloudflare Turnstile) no login e signup.
 5. **Redefinir sua senha mestra atual**, se quiser migrar seu cofre já existente de 250k pra 600k iterações de PBKDF2 (opcional).
@@ -307,21 +353,34 @@ Estas dependem de configuração no painel do Supabase ou de uma ação sua — 
 ```
 vault-app/
 ├── app/
-│   ├── page.tsx                 # Redireciona pra /login ou /vault conforme sessão
-│   ├── layout.tsx                # Layout raiz, fontes (Poppins/IBM Plex Mono), metadata PWA
+│   ├── page.tsx                  # Redireciona pra /login ou /vault conforme sessão
+│   ├── layout.tsx                # Layout raiz, fontes, metadata PWA/Open Graph
 │   ├── icon.png, apple-icon.png, favicon.ico   # Ícones (convenção Next.js App Router)
-│   ├── login/page.tsx            # Login, criação de conta, senha mestra
+│   ├── login/page.tsx            # Login, criação de conta, senha mestra, MFA, esqueci a senha
+│   ├── reset-password/page.tsx   # Definir nova senha da conta (link vindo do e-mail)
 │   ├── vault/page.tsx            # Tela principal do cofre
-│   └── docs/page.tsx             # Esta documentação, publicada em /docs
+│   ├── share/[id]/page.tsx       # Página pública de quem recebe um link compartilhado
+│   ├── docs/page.tsx             # Documentação técnica, publicada em /docs
+│   └── ajuda/page.tsx            # Guia de uso pra quem não é técnico, publicado em /ajuda
 ├── components/
-│   ├── PasswordCard.tsx          # Card de um item (ver/copiar/editar/excluir)
+│   ├── PasswordCard.tsx          # Card de um item (ver/copiar/editar/excluir/compartilhar)
 │   ├── PasswordFormModal.tsx     # Modal de criar OU editar um item
+│   ├── PasswordInput.tsx         # Campo de senha com ícone de olho (mostrar/ocultar)
+│   ├── DeleteAllDataModal.tsx    # Confirmação de excluir todos os dados do cofre
+│   ├── ShareModal.tsx            # Gerar/copiar/revogar um link de compartilhamento
+│   ├── ActiveSharesModal.tsx     # Lista e revoga links de compartilhamento ativos
+│   ├── MfaSettingsModal.tsx      # Cadastrar/remover autenticadores (MFA)
 │   └── ServiceWorkerRegister.tsx # Registra o service worker do PWA
 ├── lib/
-│   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (toda a criptografia)
+│   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (criptografia do cofre)
+│   ├── shareCrypto.ts            # Chave nova e descartável por compartilhamento
 │   ├── passwordStrength.ts       # Validação de força da senha mestra
 │   ├── keyStore.ts               # Chave derivada em memória (nunca em disco)
 │   ├── vaultStore.ts             # CRUD contra o Supabase (vault_profiles, vault_items)
+│   ├── shareStore.ts             # CRUD contra o Supabase (shared_items)
+│   ├── mfaStore.ts               # Camada sobre supabase.auth.mfa.*
+│   ├── features.ts               # Interruptor MFA_ENABLED
+│   ├── constants.ts              # E-mail de suporte pra pedidos de exclusão de conta
 │   └── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
 ├── supabase/
 │   └── schema.sql                # Tabelas, RLS, constraints (rodar no SQL Editor)
@@ -331,104 +390,11 @@ vault-app/
 │   ├── manifest.json             # Manifest do PWA (cores, ícones, screenshots)
 │   ├── sw.js                     # Service worker
 │   ├── icons/                    # Ícones do manifest (192px, 512px)
-│   └── screenshots/               # Screenshots do manifest
+│   ├── screenshots/               # Screenshots do manifest
+│   └── guide/                    # Prints usados no guia de uso (/ajuda)
 ├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
-├── DOCUMENTACAO.md               # Este arquivo
-└── README.md                     # Guia de instalação/deploy
+├── MFA.md                        # O que foi feito sobre Duplo fator e como ativar
+├── DOCUMENTACAO.md               # Guia rápido de instalação/deploy
+└── README.md                     # Este arquivo
 ```
-
-# Vault — Cofre pessoal
-
-App pessoal de senhas. Toda a criptografia (AES-256-GCM) acontece no
-navegador — o Supabase nunca vê uma senha em texto puro, só o
-ciphertext. A "senha mestra" que você define nunca é enviada ao
-servidor.
-
-## 1. Criar o projeto no Supabase (grátis)
-
-1. Crie uma conta em https://supabase.com e um novo projeto (free tier).
-2. No painel, vá em **SQL Editor** e cole o conteúdo de
-   `supabase/schema.sql`. Rode. Isso cria as tabelas `vault_profiles`
-   e `vault_items`, já com Row Level Security ativado (cada usuário só
-   enxerga os próprios dados).
-3. Vá em **Authentication → Providers** e confirme que "Email" está
-   habilitado (vem habilitado por padrão).
-   - Opcional: em **Authentication → Settings**, você pode desativar
-     "Confirm email" pra não precisar confirmar por e-mail toda vez
-     que testar (reative depois se quiser mais segurança).
-4. Vá em **Project Settings → API** e copie:
-   - `Project URL`
-   - `anon public` key
-
-## 2. Configurar o projeto localmente
-
-```bash
-npm install
-cp .env.local.example .env.local
-```
-
-Cole a URL e a chave anon no `.env.local`:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-```
-
-Rode local pra testar:
-
-```bash
-npm run dev
-```
-
-Abra http://localhost:3000 — crie uma conta (e-mail + senha da conta),
-depois defina sua **senha mestra** (é diferente da senha da conta — é
-ela que criptografa os dados).
-
-## 3. Deploy no Vercel (grátis)
-
-1. Suba este projeto num repositório no GitHub.
-2. Em https://vercel.com, "New Project" → importe o repositório.
-3. Em **Environment Variables**, adicione as mesmas duas variáveis do
-   `.env.local` (`NEXT_PUBLIC_SUPABASE_URL` e
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-4. Deploy. Pronto, seu app está no ar com HTTPS (obrigatório pra Web
-   Crypto API funcionar).
-
-## 4. Instalar como app no celular (PWA)
-
-- **Android (Chrome)**: abra o link do Vercel → menu (⋮) → "Adicionar
-  à tela inicial" / "Instalar app".
-- **iPhone (Safari)**: abra o link → ícone de compartilhar → "Adicionar
-  à Tela de Início".
-
-O `manifest.json` e o service worker já estão configurados pra isso
-funcionar sem passos extras.
-
-## Como funciona a segurança, resumido
-
-- Senha da **conta** (Supabase Auth): controla o login, é a
-  autenticação padrão.
-- Senha **mestra**: nunca sai do seu dispositivo. Dela é derivada (via
-  PBKDF2, 250 mil iterações) uma chave AES-256 que fica só na memória
-  RAM da aba aberta — não vai pra localStorage, cookie nem servidor.
-- Cada senha salva é criptografada com essa chave antes de ir pro
-  Supabase. O banco guarda só `iv` + `ciphertext` — dados ilegíveis
-  sem a chave.
-- Se você recarregar a página, a chave em memória some por design —
-  você precisa redigitar a senha mestra. Isso evita que a chave fique
-  "esquecida" em algum lugar acessível.
-- **Se você esquecer a senha mestra, não tem como recuperar as senhas
-  salvas.** Não existe um "esqueci minha senha" para ela — isso é o
-  preço de garantir que nem o próprio backend consiga descriptografar
-  seus dados.
-
-## Limitações desta versão (pra evoluir depois)
-
-- Sem campo de notas na UI (o banco já suporta, só falta o formulário).
-- Sem 2FA na conta Supabase (dá pra ativar depois em
-  Authentication → Providers).
-
-## Para a documentação técnica:
-
-- [DOCUMENTACAO.md](DOCUMENTACAO.md) — Documentação para instalação é uso.

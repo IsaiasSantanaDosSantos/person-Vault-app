@@ -16,11 +16,11 @@ O MFA (TOTP) do Supabase Auth exige o plano **Pro** (a partir de US$ 25/mês) �
 | Chamadas ao Supabase | `lib/mfaStore.ts` | Fina camada sobre `supabase.auth.mfa.*` — cadastrar fator, confirmar cadastro, verificar código no login, remover fator, checar se a sessão atual já passou pelo segundo fator. |
 | Tela de cadastro/gestão | `components/MfaSettingsModal.tsx` | Cadastra um autenticador novo (nome → QR code + segredo → confirmar com código), lista os já cadastrados, remove. |
 | Etapa no login | `app/login/page.tsx` | Uma nova etapa ("mfa"), entre e-mail/senha e a senha mestra, que só aparece se o usuário tiver algum fator cadastrado. |
-| Botão no cofre | `app/vault/page.tsx` | "2FA" no cabeçalho — **visível, mas cinza/desativado** enquanto `MFA_ENABLED` for `false`, com uma dica explicando o motivo ao passar o mouse. |
+| Botão no cofre | `app/vault/page.tsx` | "Duplo fator" no cabeçalho — **visível, mas cinza/desativado** enquanto `MFA_ENABLED` for `false`, com uma dica explicando o motivo ao passar o mouse. |
 
 ### Como funciona (quando ativado)
 
-1. Você entra em "2FA" no cabeçalho do cofre → "Ativar" → dá um nome pro autenticador (ex: "Celular") → aparece um QR code → escaneia com o Google Authenticator (ou qualquer outro app TOTP — Authy, Microsoft Authenticator, o gerador de TOTP do Bitwarden/1Password, todos funcionam igual, é um padrão aberto) → digita o código de 6 dígitos gerado pra confirmar.
+1. Você entra em "Duplo fator" no cabeçalho do cofre → "Ativar" → dá um nome pro autenticador (ex: "Celular") → aparece um QR code → escaneia com o Google Authenticator (ou qualquer outro app TOTP — Authy, Microsoft Authenticator, o gerador de TOTP do Bitwarden/1Password, todos funcionam igual, é um padrão aberto) → digita o código de 6 dígitos gerado pra confirmar.
 2. Da próxima vez que entrar (e-mail + senha), aparece uma etapa nova pedindo o código de 6 dígitos antes de ir pra senha mestra.
 3. O segredo do TOTP nunca é visto nem guardado por este app — fica só dentro do Supabase, gerenciado internamente por eles. O app só manda o código de 6 dígitos pra eles validarem.
 

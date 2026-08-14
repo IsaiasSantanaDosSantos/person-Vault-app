@@ -118,10 +118,10 @@ export default function VaultPage() {
           <button
             onClick={() => MFA_ENABLED && setShowMfaSettings(true)}
             disabled={!MFA_ENABLED}
-            title={MFA_ENABLED ? undefined : "Disponível após upgrade do plano Supabase"}
+            title={MFA_ENABLED ? undefined : "Disponível no momento"}
             className="text-xs text-vault-muted hover:text-vault-text transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:cursor-not-allowed"
           >
-            2FA
+            Duplo fator
           </button>
           <button
             onClick={() => setShowDeleteAll(true)}

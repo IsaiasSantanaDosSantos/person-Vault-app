@@ -86,5 +86,5 @@ funcionar sem passos extras.
 ## Limitações desta versão (pra evoluir depois)
 
 - Sem campo de notas na UI (o banco já suporta, só falta o formulário).
-- Sem 2FA na conta Supabase (dá pra ativar depois em
+- Sem Duplo fator na conta Supabase (dá pra ativar depois em
   Authentication → Providers).
