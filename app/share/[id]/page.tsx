@@ -13,7 +13,6 @@ export default function SharePage({ params }: { params: { id: string } }) {
   const [username, setUsername] = useState<string | null>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -87,14 +86,8 @@ export default function SharePage({ params }: { params: { id: string } }) {
 
             <div className="mt-3 flex items-center gap-2">
               <div className="flex-1 bg-vault-bg border border-vault-border rounded-md px-3 py-2 font-mono text-sm truncate">
-                {revealed ? password : "••••••••••••"}
+                ••••••••••••
               </div>
-              <button
-                onClick={() => setRevealed((v) => !v)}
-                className="shrink-0 border border-vault-border hover:border-vault-steel rounded-md px-3 py-2 text-xs transition"
-              >
-                {revealed ? "Ocultar" : "Ver"}
-              </button>
               <button
                 onClick={handleCopy}
                 className="shrink-0 bg-vault-steel hover:bg-vault-steelBright text-vault-bg rounded-md px-3 py-2 text-xs font-medium transition"

@@ -338,7 +338,7 @@ vault-app/
 └── README.md                     # Guia de instalação/deploy
 ```
 
-# Cofre — senhas pessoais
+# Vault — Cofre pessoal
 
 App pessoal de senhas. Toda a criptografia (AES-256-GCM) acontece no
 navegador — o Supabase nunca vê uma senha em texto puro, só o
