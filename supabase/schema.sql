@@ -61,8 +61,55 @@ begin
   end if;
 end $$;
 
+-- Compartilhamento de uma senha por link. Cada compartilhamento usa uma
+-- chave AES-256 nova e aleatória, gerada só pra ele — sem nenhuma
+-- relação com a senha mestra ou com a chave do cofre. Essa chave nunca
+-- é salva aqui nem em lugar nenhum do servidor: ela vive só no
+-- fragmento da URL (depois do #), que o navegador nunca envia a
+-- nenhum servidor. Esta tabela só guarda o ciphertext — inútil sem a
+-- chave que só quem recebeu o link tem.
+create table if not exists shared_items (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  label text not null check (char_length(label) between 1 and 200),
+  username text check (char_length(username) <= 200),
+  password_iv text not null check (char_length(password_iv) <= 64),
+  password_ciphertext text not null check (char_length(password_ciphertext) <= 20000),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  -- Teto de segurança de 24h, garantido no banco (não só na interface).
+  constraint shared_items_expires_at_range check (
+    expires_at > created_at and expires_at <= created_at + interval '24 hours'
+  )
+);
+
 alter table vault_profiles enable row level security;
 alter table vault_items enable row level security;
+alter table shared_items enable row level security;
+
+-- Quem cria o compartilhamento só mexe nos próprios: cria, lista
+-- (inclusive os já expirados, pra conseguir ver o histórico) e revoga
+-- quando quiser.
+drop policy if exists "shared: owner insert" on shared_items;
+create policy "shared: owner insert" on shared_items
+  for insert with check (auth.uid() = owner_id);
+
+drop policy if exists "shared: owner select" on shared_items;
+create policy "shared: owner select" on shared_items
+  for select using (auth.uid() = owner_id);
+
+drop policy if exists "shared: owner delete" on shared_items;
+create policy "shared: owner delete" on shared_items
+  for delete using (auth.uid() = owner_id);
+
+-- Única exceção "pública" deste banco: quem abre o link do
+-- compartilhamento não está logado como o dono, então precisa
+-- conseguir ler pelo ID — mas só enquanto não tiver expirado. O ID
+-- (UUID aleatório, praticamente impossível de adivinhar) + a chave na
+-- URL são o segredo, não uma sessão de usuário.
+drop policy if exists "shared: public read valid" on shared_items;
+create policy "shared: public read valid" on shared_items
+  for select using (expires_at > now());
 
 -- Cada usuário só acessa as próprias linhas.
 -- O DROP POLICY IF EXISTS antes de cada CREATE torna o script seguro

@@ -116,6 +116,8 @@ export async function deleteItem(id: string): Promise<void> {
  * não usa nem expõe no client por design.
  */
 export async function deleteAllData(userId: string): Promise<void> {
+  const { error: sharesError } = await supabase.from("shared_items").delete().eq("owner_id", userId);
+  if (sharesError) throw sharesError;
   const { error: itemsError } = await supabase.from("vault_items").delete().eq("user_id", userId);
   if (itemsError) throw itemsError;
   const { error: profileError } = await supabase

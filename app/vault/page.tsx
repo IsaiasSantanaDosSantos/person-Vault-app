@@ -8,6 +8,8 @@ import { getKey, clearKey } from "@/lib/keyStore";
 import PasswordCard from "@/components/PasswordCard";
 import PasswordFormModal, { EditingItem } from "@/components/PasswordFormModal";
 import DeleteAllDataModal from "@/components/DeleteAllDataModal";
+import ShareModal from "@/components/ShareModal";
+import ActiveSharesModal from "@/components/ActiveSharesModal";
 
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutos sem interação tranca o cofre
 
@@ -18,7 +20,9 @@ export default function VaultPage() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<EditingItem | null>(null);
+  const [sharing, setSharing] = useState<{ item: VaultItem; password: string } | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
+  const [showActiveShares, setShowActiveShares] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -103,6 +107,12 @@ export default function VaultPage() {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowActiveShares(true)}
+            className="text-xs text-vault-muted hover:text-vault-text transition"
+          >
+            Compartilhamentos
+          </button>
+          <button
             onClick={() => setShowDeleteAll(true)}
             className="text-xs text-vault-muted hover:text-vault-danger transition"
           >
@@ -135,6 +145,7 @@ export default function VaultPage() {
             item={item}
             onDeleted={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
             onEdit={(item, password) => setEditing({ item, password })}
+            onShare={(item, password) => setSharing({ item, password })}
           />
         ))}
       </div>
@@ -171,6 +182,19 @@ export default function VaultPage() {
           onClose={() => setShowDeleteAll(false)}
           onDeleted={handleAllDataDeleted}
         />
+      )}
+
+      {sharing && userId && (
+        <ShareModal
+          userId={userId}
+          item={sharing.item}
+          password={sharing.password}
+          onClose={() => setSharing(null)}
+        />
+      )}
+
+      {showActiveShares && userId && (
+        <ActiveSharesModal userId={userId} onClose={() => setShowActiveShares(false)} />
       )}
     </div>
   );

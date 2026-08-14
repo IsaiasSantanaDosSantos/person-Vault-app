@@ -9,10 +9,12 @@ export default function PasswordCard({
   item,
   onDeleted,
   onEdit,
+  onShare,
 }: {
   item: VaultItem;
   onDeleted: (id: string) => void;
   onEdit: (item: VaultItem, currentPassword: string) => void;
+  onShare: (item: VaultItem, currentPassword: string) => void;
 }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -73,6 +75,20 @@ export default function PasswordCard({
     }
   }
 
+  async function handleShare() {
+    const key = getKey();
+    if (!key) return;
+    setBusy(true);
+    try {
+      const plain =
+        revealed ??
+        (await decryptText(key, { iv: item.password_iv, ciphertext: item.password_ciphertext }));
+      onShare(item, plain);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="bg-vault-panel border border-vault-border rounded-lg p-4">
       <div className="flex items-start justify-between gap-3">
@@ -83,6 +99,14 @@ export default function PasswordCard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleShare}
+            disabled={busy}
+            className="text-vault-muted hover:text-vault-steel transition disabled:opacity-50"
+            title="Compartilhar"
+          >
+            <ShareIcon />
+          </button>
           <button
             onClick={handleEdit}
             disabled={busy}
@@ -120,6 +144,17 @@ export default function PasswordCard({
         </button>
       </div>
     </div>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.6 10.6l6.8-3.9M8.6 13.4l6.8 3.9" />
+    </svg>
   );
 }
 
