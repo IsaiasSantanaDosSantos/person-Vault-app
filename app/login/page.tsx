@@ -16,9 +16,11 @@ import {
 import { setKey, clearKey } from "@/lib/keyStore";
 import { checkMasterPasswordStrength, MIN_MASTER_PASSWORD_LENGTH } from "@/lib/passwordStrength";
 import { SUPPORT_EMAIL } from "@/lib/constants";
+import { MFA_ENABLED } from "@/lib/features";
+import { getAssuranceLevel, needsMfaChallenge, listFactors, verifyLoginChallenge } from "@/lib/mfaStore";
 import PasswordInput from "@/components/PasswordInput";
 
-type Stage = "account" | "master" | "forgot";
+type Stage = "account" | "master" | "forgot" | "mfa";
 type Mode = "login" | "signup";
 
 export default function LoginPage() {
@@ -36,21 +38,40 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+
+  // Depois de confirmar e-mail/senha (e o segundo fator, se ativado),
+  // decide se precisa criar um perfil de criptografia novo ou pedir a
+  // senha mestra de um já existente.
+  async function proceedPastAuth(uid: string) {
+    const profile = await getProfile(uid);
+    setNeedsNewProfile(!profile);
+    setStage("master");
+  }
 
   // A sessão da conta (Supabase Auth) persiste ao recarregar a página —
   // só a chave derivada da senha mestra é que vive em memória e some
   // (lib/keyStore.ts, por design). Então, se já existe uma sessão válida,
-  // pulamos direto pra etapa da senha mestra em vez de pedir e-mail/senha
-  // de novo.
+  // pulamos direto pra etapa da senha mestra (ou pro MFA, se pendente)
+  // em vez de pedir e-mail/senha de novo.
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         const uid = data.session.user.id;
         setUserId(uid);
-        const profile = await getProfile(uid);
-        setNeedsNewProfile(!profile);
-        setStage("master");
+        if (MFA_ENABLED) {
+          const level = await getAssuranceLevel();
+          if (needsMfaChallenge(level)) {
+            const factors = await listFactors();
+            setMfaFactorId(factors[0]?.id ?? null);
+            setStage("mfa");
+            setCheckingSession(false);
+            return;
+          }
+        }
+        await proceedPastAuth(uid);
       }
       setCheckingSession(false);
     })();
@@ -67,6 +88,8 @@ export default function LoginPage() {
     setAccountPassword("");
     setMasterPassword("");
     setMasterPasswordConfirm("");
+    setMfaFactorId(null);
+    setMfaCode("");
     setError(null);
   }
 
@@ -97,11 +120,40 @@ export default function LoginPage() {
       }
 
       const uid = (await supabase.auth.getUser()).data.user!.id;
-      const profile = await getProfile(uid);
-      setNeedsNewProfile(!profile);
-      setStage("master");
+
+      if (MFA_ENABLED) {
+        const level = await getAssuranceLevel();
+        if (needsMfaChallenge(level)) {
+          const factors = await listFactors();
+          setMfaFactorId(factors[0]?.id ?? null);
+          setStage("mfa");
+          setLoading(false);
+          return;
+        }
+      }
+
+      await proceedPastAuth(uid);
     } catch (err: any) {
       setError(traduzErro(err.message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleMfaSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!mfaFactorId) {
+      setError("Não encontramos seu autenticador. Tente entrar de novo.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await verifyLoginChallenge(mfaFactorId, mfaCode);
+      const uid = (await supabase.auth.getUser()).data.user!.id;
+      await proceedPastAuth(uid);
+    } catch (err: any) {
+      setError("Código inválido. Tente de novo.");
     } finally {
       setLoading(false);
     }
@@ -200,6 +252,8 @@ export default function LoginPage() {
               ? "Acesse sua conta"
               : stage === "forgot"
               ? "Recuperar acesso à conta"
+              : stage === "mfa"
+              ? "Verificação em duas etapas"
               : needsNewProfile
               ? "Defina sua senha mestra"
               : "Digite sua senha mestra"}
@@ -311,6 +365,39 @@ export default function LoginPage() {
               className="w-full text-center text-xs text-vault-muted hover:text-vault-text transition py-1"
             >
               Voltar
+            </button>
+          </form>
+        )}
+
+        {stage === "mfa" && (
+          <form onSubmit={handleMfaSubmit} className="space-y-3">
+            <p className="text-xs text-vault-muted leading-relaxed mb-1">
+              Digite o código de 6 dígitos do seu app autenticador.
+            </p>
+            <input
+              autoFocus
+              required
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              placeholder="código de 6 dígitos"
+              value={mfaCode}
+              onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+              className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm font-mono text-center tracking-widest outline-none focus:border-vault-steel"
+            />
+            {error && <p className="text-vault-danger text-xs">{error}</p>}
+            <button
+              disabled={loading || mfaCode.length !== 6}
+              className="w-full bg-vault-steel hover:bg-vault-steelBright transition rounded-md py-2 text-sm font-medium text-vault-bg disabled:opacity-50"
+            >
+              {loading ? "Verificando..." : "Verificar"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="w-full text-center text-xs text-vault-muted hover:text-vault-text transition py-1"
+            >
+              Não é você? Sair da conta
             </button>
           </form>
         )}

@@ -10,6 +10,8 @@ import PasswordFormModal, { EditingItem } from "@/components/PasswordFormModal";
 import DeleteAllDataModal from "@/components/DeleteAllDataModal";
 import ShareModal from "@/components/ShareModal";
 import ActiveSharesModal from "@/components/ActiveSharesModal";
+import MfaSettingsModal from "@/components/MfaSettingsModal";
+import { MFA_ENABLED } from "@/lib/features";
 
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutos sem interação tranca o cofre
 
@@ -23,6 +25,7 @@ export default function VaultPage() {
   const [sharing, setSharing] = useState<{ item: VaultItem; password: string } | null>(null);
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [showActiveShares, setShowActiveShares] = useState(false);
+  const [showMfaSettings, setShowMfaSettings] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -113,6 +116,14 @@ export default function VaultPage() {
             Compartilhamentos
           </button>
           <button
+            onClick={() => MFA_ENABLED && setShowMfaSettings(true)}
+            disabled={!MFA_ENABLED}
+            title={MFA_ENABLED ? undefined : "Disponível após upgrade do plano Supabase"}
+            className="text-xs text-vault-muted hover:text-vault-text transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:cursor-not-allowed"
+          >
+            2FA
+          </button>
+          <button
             onClick={() => setShowDeleteAll(true)}
             className="text-xs text-vault-muted hover:text-vault-danger transition"
           >
@@ -195,6 +206,10 @@ export default function VaultPage() {
 
       {showActiveShares && userId && (
         <ActiveSharesModal userId={userId} onClose={() => setShowActiveShares(false)} />
+      )}
+
+      {MFA_ENABLED && showMfaSettings && (
+        <MfaSettingsModal onClose={() => setShowMfaSettings(false)} />
       )}
     </div>
   );
