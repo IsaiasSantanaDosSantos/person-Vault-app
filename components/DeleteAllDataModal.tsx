@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { deleteAllData } from "@/lib/vaultStore";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 
 const CONFIRM_WORD = "EXCLUIR";
 
@@ -39,6 +40,17 @@ export default function DeleteAllDataModal({
           e sua senha mestra atual. <strong className="text-vault-text">Não tem como desfazer.</strong> Sua
           conta de login continua existindo — se você quiser guardar senhas de novo, vai precisar
           definir uma nova senha mestra do zero.
+        </p>
+        <p className="text-xs text-vault-muted leading-relaxed mb-4">
+          Quer apagar a conta de login também, por completo? Isso não dá pra fazer sozinho por
+          aqui — escreva pra{" "}
+          <a
+            href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Excluir minha conta")}`}
+            className="text-vault-steel hover:text-vault-steelBright"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+          .
         </p>
         <p className="text-xs text-vault-muted mb-2">
           Digite <strong className="text-vault-text font-mono">{CONFIRM_WORD}</strong> pra confirmar:

@@ -15,6 +15,7 @@ import {
 } from "@/lib/crypto";
 import { setKey, clearKey } from "@/lib/keyStore";
 import { checkMasterPasswordStrength, MIN_MASTER_PASSWORD_LENGTH } from "@/lib/passwordStrength";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 import PasswordInput from "@/components/PasswordInput";
 
 type Stage = "account" | "master" | "forgot";
@@ -362,11 +363,21 @@ export default function LoginPage() {
           </form>
         )}
 
-        <p className="text-center mt-6">
-          <Link href="/docs" className="text-xs text-vault-muted hover:text-vault-text transition">
-            Documentação técnica
-          </Link>
-        </p>
+        <div className="text-center mt-6 space-y-1.5">
+          <p>
+            <Link href="/docs" className="text-xs text-vault-muted hover:text-vault-text transition">
+              Documentação técnica
+            </Link>
+          </p>
+          <p>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Excluir minha conta")}`}
+              className="text-xs text-vault-muted hover:text-vault-text transition"
+            >
+              Quer apagar sua conta por completo? Escreva pra {SUPPORT_EMAIL}
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
