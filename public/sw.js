@@ -9,6 +9,8 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", () => {
-  // passthrough — sem cache customizado
-});
+// Sem handler de "fetch" de propósito — este é um app de senhas e
+// sempre deve buscar dados frescos, sem cache customizado. Um handler
+// vazio (`() => {}`) faz o Chrome avisar "no-op fetch handler" no
+// console à toa; o service worker continua funcionando normalmente
+// pra instalação como PWA sem ele.

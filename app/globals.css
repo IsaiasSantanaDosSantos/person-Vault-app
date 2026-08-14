@@ -13,7 +13,7 @@ body {
 }
 
 ::selection {
-  background: #5b8dbe55;
+  background: #f5df4e55;
 }
 
 input:-webkit-autofill {

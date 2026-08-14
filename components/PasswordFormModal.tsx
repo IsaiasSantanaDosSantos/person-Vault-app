@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addItem, updateItem, VaultItem } from "@/lib/vaultStore";
 import { encryptText } from "@/lib/crypto";
 import { getKey } from "@/lib/keyStore";
+import PasswordInput from "./PasswordInput";
 
 export interface EditingItem {
   item: VaultItem;
@@ -71,7 +72,7 @@ export default function PasswordFormModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-6 z-50">
+    <div className="fixed inset-0 bg-vault-bg/80 flex items-end sm:items-center justify-center p-0 sm:p-6 z-50">
       <div className="bg-vault-panel border border-vault-border rounded-t-xl sm:rounded-xl w-full max-w-sm p-5">
         <h2 className="font-semibold text-sm mb-4">{editing ? "Editar senha" : "Nova senha"}</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -90,22 +91,17 @@ export default function PasswordFormModal({
             className="w-full bg-vault-bg border border-vault-border rounded-md px-3 py-2 text-sm outline-none focus:border-vault-steel"
           />
           <div className="flex gap-2">
-            <input
+            <PasswordInput
               required
-              type={showPassword ? "text" : "password"}
+              mono
+              surface="bg"
               placeholder="senha"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="flex-1 min-w-0 bg-vault-bg border border-vault-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-vault-steel"
+              onChange={setPassword}
+              wrapperClassName="flex-1 min-w-0"
+              visible={showPassword}
+              onVisibleChange={setShowPassword}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="shrink-0 border border-vault-border hover:border-vault-steel rounded-md px-3 text-xs transition"
-              title={showPassword ? "Ocultar senha" : "Mostrar senha"}
-            >
-              {showPassword ? "Ocultar" : "Mostrar"}
-            </button>
             <button
               type="button"
               onClick={generateRandomPassword}

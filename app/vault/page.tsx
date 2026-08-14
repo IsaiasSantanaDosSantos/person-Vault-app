@@ -7,6 +7,7 @@ import { listItems, VaultItem } from "@/lib/vaultStore";
 import { getKey, clearKey } from "@/lib/keyStore";
 import PasswordCard from "@/components/PasswordCard";
 import PasswordFormModal, { EditingItem } from "@/components/PasswordFormModal";
+import DeleteAllDataModal from "@/components/DeleteAllDataModal";
 
 const INACTIVITY_LIMIT_MS = 5 * 60 * 1000; // 5 minutos sem interação tranca o cofre
 
@@ -17,6 +18,7 @@ export default function VaultPage() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<EditingItem | null>(null);
+  const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -41,6 +43,12 @@ export default function VaultPage() {
   }, [router]);
 
   async function handleLogout() {
+    clearKey();
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
+  async function handleAllDataDeleted() {
     clearKey();
     await supabase.auth.signOut();
     router.replace("/login");
@@ -93,9 +101,17 @@ export default function VaultPage() {
           <img src="/icons/icon-192.png" alt="" width={24} height={24} className="w-6 h-6 rounded-md" />
           <h1 className="font-semibold text-sm tracking-tight">Cofre</h1>
         </div>
-        <button onClick={handleLogout} className="text-xs text-vault-muted hover:text-vault-text transition">
-          Sair
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowDeleteAll(true)}
+            className="text-xs text-vault-muted hover:text-vault-danger transition"
+          >
+            Excluir dados
+          </button>
+          <button onClick={handleLogout} className="text-xs text-vault-muted hover:text-vault-text transition">
+            Sair
+          </button>
+        </div>
       </header>
 
       <div className="px-4 py-3">
@@ -146,6 +162,14 @@ export default function VaultPage() {
                 : [item, ...prev]
             );
           }}
+        />
+      )}
+
+      {showDeleteAll && userId && (
+        <DeleteAllDataModal
+          userId={userId}
+          onClose={() => setShowDeleteAll(false)}
+          onDeleted={handleAllDataDeleted}
         />
       )}
     </div>

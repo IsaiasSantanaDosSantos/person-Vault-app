@@ -75,6 +75,12 @@ drop policy if exists "profile: insert own" on vault_profiles;
 create policy "profile: insert own" on vault_profiles
   for insert with check (auth.uid() = user_id);
 
+-- Necessária pro recurso de "excluir todos os dados" (apaga o perfil de
+-- criptografia, sem apagar a conta de login em si).
+drop policy if exists "profile: delete own" on vault_profiles;
+create policy "profile: delete own" on vault_profiles
+  for delete using (auth.uid() = user_id);
+
 drop policy if exists "items: select own" on vault_items;
 create policy "items: select own" on vault_items
   for select using (auth.uid() = user_id);

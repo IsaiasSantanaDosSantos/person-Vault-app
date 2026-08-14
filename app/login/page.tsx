@@ -15,8 +15,9 @@ import {
 } from "@/lib/crypto";
 import { setKey, clearKey } from "@/lib/keyStore";
 import { checkMasterPasswordStrength, MIN_MASTER_PASSWORD_LENGTH } from "@/lib/passwordStrength";
+import PasswordInput from "@/components/PasswordInput";
 
-type Stage = "account" | "master";
+type Stage = "account" | "master" | "forgot";
 type Mode = "login" | "signup";
 
 export default function LoginPage() {
@@ -32,6 +33,8 @@ export default function LoginPage() {
   const [needsNewProfile, setNeedsNewProfile] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
 
   // A sessão da conta (Supabase Auth) persiste ao recarregar a página —
   // só a chave derivada da senha mestra é que vive em memória e some
@@ -96,6 +99,23 @@ export default function LoginPage() {
       const profile = await getProfile(uid);
       setNeedsNewProfile(!profile);
       setStage("master");
+    } catch (err: any) {
+      setError(traduzErro(err.message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setForgotSent(true);
     } catch (err: any) {
       setError(traduzErro(err.message));
     } finally {
@@ -177,6 +197,8 @@ export default function LoginPage() {
           <p className="text-sm text-vault-muted mt-1">
             {stage === "account"
               ? "Acesse sua conta"
+              : stage === "forgot"
+              ? "Recuperar acesso à conta"
               : needsNewProfile
               ? "Defina sua senha mestra"
               : "Digite sua senha mestra"}
@@ -213,14 +235,12 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm outline-none focus:border-vault-steel"
             />
-            <input
-              type="password"
+            <PasswordInput
               required
               minLength={10}
               placeholder="senha da conta"
               value={accountPassword}
-              onChange={(e) => setAccountPassword(e.target.value)}
-              className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm outline-none focus:border-vault-steel"
+              onChange={setAccountPassword}
             />
             {error && <p className="text-vault-danger text-xs">{error}</p>}
             <button
@@ -228,6 +248,68 @@ export default function LoginPage() {
               className="w-full bg-vault-steel hover:bg-vault-steelBright transition rounded-md py-2 text-sm font-medium text-vault-bg disabled:opacity-50"
             >
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+            </button>
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotSent(false);
+                  setError(null);
+                  setStage("forgot");
+                }}
+                className="w-full text-center text-xs text-vault-muted hover:text-vault-text transition py-1"
+              >
+                Esqueci minha senha
+              </button>
+            )}
+          </form>
+        )}
+
+        {stage === "forgot" && (
+          <form onSubmit={handleForgotPassword} className="space-y-3">
+            <p className="text-xs text-vault-muted leading-relaxed mb-2">
+              Isso envia um link pro seu e-mail pra redefinir a senha da{" "}
+              <strong className="text-vault-text">conta</strong> (o login). Sua senha{" "}
+              <strong className="text-vault-text">mestra</strong> — a que criptografa os itens
+              salvos — não muda e continua sendo necessária pra abrir o cofre depois. Se você
+              esqueceu a senha mestra, infelizmente não há como recuperá-la nem os itens já
+              salvos com ela.
+            </p>
+            {forgotSent ? (
+              <p className="text-xs text-vault-text bg-vault-panel border border-vault-border rounded-md px-3 py-2 leading-relaxed">
+                Link enviado. Verifique sua caixa de entrada (e o spam) em{" "}
+                <strong>{forgotEmail}</strong>.
+              </p>
+            ) : (
+              <input
+                type="email"
+                required
+                autoFocus
+                placeholder="e-mail da conta"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm outline-none focus:border-vault-steel"
+              />
+            )}
+            {error && <p className="text-vault-danger text-xs">{error}</p>}
+            {!forgotSent && (
+              <button
+                disabled={loading}
+                className="w-full bg-vault-steel hover:bg-vault-steelBright transition rounded-md py-2 text-sm font-medium text-vault-bg disabled:opacity-50"
+              >
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setStage("account");
+                setError(null);
+              }}
+              className="w-full text-center text-xs text-vault-muted hover:text-vault-text transition py-1"
+            >
+              Voltar
             </button>
           </form>
         )}
@@ -242,27 +324,25 @@ export default function LoginPage() {
                 misturando letras, números e símbolos.
               </p>
             )}
-            <input
-              type="password"
+            <PasswordInput
               required
               autoFocus
+              mono
               minLength={needsNewProfile ? MIN_MASTER_PASSWORD_LENGTH : undefined}
               placeholder="senha mestra"
               value={masterPassword}
-              onChange={(e) => setMasterPassword(e.target.value)}
-              className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-vault-steel"
+              onChange={setMasterPassword}
             />
             {needsNewProfile && masterPassword.length > 0 && (
               <StrengthMeter password={masterPassword} />
             )}
             {needsNewProfile && (
-              <input
-                type="password"
+              <PasswordInput
                 required
+                mono
                 placeholder="confirme a senha mestra"
                 value={masterPasswordConfirm}
-                onChange={(e) => setMasterPasswordConfirm(e.target.value)}
-                className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-vault-steel"
+                onChange={setMasterPasswordConfirm}
               />
             )}
             {error && <p className="text-vault-danger text-xs">{error}</p>}
@@ -294,7 +374,7 @@ export default function LoginPage() {
 
 function StrengthMeter({ password }: { password: string }) {
   const { score, message } = checkMasterPasswordStrength(password);
-  const colors = ["bg-vault-danger", "bg-vault-danger", "bg-yellow-600", "bg-vault-steel", "bg-emerald-500"];
+  const colors = ["bg-vault-danger", "bg-vault-danger", "bg-vault-muted", "bg-vault-steel", "bg-vault-steelBright"];
   return (
     <div className="flex items-center gap-2 -mt-1">
       <div className="flex-1 h-1 rounded-full bg-vault-border overflow-hidden flex gap-0.5">
@@ -312,6 +392,8 @@ function StrengthMeter({ password }: { password: string }) {
 
 function traduzErro(msg: string): string {
   if (msg?.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
+  if (msg?.includes("Email not confirmed"))
+    return "Confirme seu e-mail antes de entrar — veja o link que enviamos pra sua caixa de entrada.";
   if (msg?.includes("already registered")) return "Este e-mail já tem conta.";
   return msg || "Algo deu errado.";
 }

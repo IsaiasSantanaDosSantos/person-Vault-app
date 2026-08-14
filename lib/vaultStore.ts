@@ -108,3 +108,19 @@ export async function deleteItem(id: string): Promise<void> {
   const { error } = await supabase.from("vault_items").delete().eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Apaga permanentemente todos os itens e o perfil de criptografia do
+ * usuário (salt, verificador, iterations). Não apaga a conta de login
+ * em si (auth.users) — isso exigiria a service_role key, que este app
+ * não usa nem expõe no client por design.
+ */
+export async function deleteAllData(userId: string): Promise<void> {
+  const { error: itemsError } = await supabase.from("vault_items").delete().eq("user_id", userId);
+  if (itemsError) throw itemsError;
+  const { error: profileError } = await supabase
+    .from("vault_profiles")
+    .delete()
+    .eq("user_id", userId);
+  if (profileError) throw profileError;
+}
