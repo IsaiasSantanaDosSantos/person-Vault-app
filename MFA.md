@@ -31,15 +31,9 @@ Cheguei a considerar implementar códigos de backup por conta própria (uma tabe
 - **Cadastre mais de um autenticador** (o botão "Adicionar outro" já existe pra isso) — celular + notebook, por exemplo. Perdeu um, usa o outro.
 - **Se perder todos:** peça pra remover o MFA da sua conta manualmente — o mesmo fluxo já existente pra pedir exclusão de conta (e-mail pro suporte, ver `lib/constants.ts` → `SUPPORT_EMAIL`), só que pedindo pra remover o segundo fator em vez de apagar tudo. Quem administra o Supabase (você, hoje) resolve em Authentication → Users → o usuário → Multi-Factor, sem precisar de nenhum código novo.
 
-## ⚠️ Próximo passo — testar de verdade
+## ✅ Testado ponta a ponta contra o Supabase real
 
-Este fluxo **nunca tinha sido testado contra um Supabase real** até agora (o código foi escrito seguindo a documentação oficial da API, mas sem validação ponta a ponta, já que antes achávamos que precisava do plano Pro). Agora que está ativado:
-
-1. Entre no app, cadastre um autenticador em "Duplo fator", confirme com o código de 6 dígitos.
-2. Saia da conta e entre de novo — confirme que a etapa do código aparece e que o código do seu app autenticador realmente funciona.
-3. Cadastre um **segundo** autenticador (outro dispositivo), pelo motivo explicado acima.
-
-Se algo não funcionar como esperado nesse teste, me avisa com o que aconteceu (mensagem de erro, em que etapa travou) que eu ajusto.
+Confirmado em uso: dá pra criar conta e usar o cofre normalmente sem MFA; ao cadastrar um autenticador em "Duplo fator", ele passa a ser exigido em todo login seguinte — logo depois da conta (e-mail/senha) autenticar com sucesso, antes da etapa de digitar a senha mestra. Sem MFA cadastrado, essa etapa simplesmente não aparece.
 
 ## Reverter (se precisar desativar)
 

@@ -227,12 +227,12 @@ Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
 - Teste isolado de componentes (`PasswordFormModal`, cabeçalho do cofre com 4 itens) em rotas temporárias sem autenticação, pra confirmar visualmente correções de layout (overflow do botão "Gerar", largura do cabeçalho em 375px) — as rotas foram **removidas** depois de cada teste, não fazem parte do app.
 - Lógica de criptografia do compartilhamento (`lib/shareCrypto.ts`) validada isoladamente no console do navegador: gerar chave → cifrar → exportar a chave em base64url → reimportar só a partir da string → decifrar — confirmado que bate exatamente com o texto original.
 - Página pública `/share/[id]` testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar (também serviu pra confirmar que a tabela `shared_items` precisa da migração do `schema.sql` — sem ela, o mesmo erro genérico aparece).
+- **MFA testado e confirmado ponta a ponta** contra o Supabase real: cadastro de autenticador, exigência do código a cada login (logo após a conta autenticar, antes da senha mestra), e ausência da etapa quando nenhum autenticador está cadastrado — tudo funcionando como esperado (ver [MFA.md](MFA.md)).
 
 **O que NÃO foi feito (limitações do processo de teste):**
 
-- **Nenhum teste automatizado** (unitário, de integração ou end-to-end) existe no projeto — não há Jest, Playwright, Cypress ou similar configurado. Toda verificação foi manual/exploratória.
+- **Sem testes de integração ou ponta a ponta** (Playwright, Cypress) nem testes de componente React — desde a v3 existe uma suíte de 48 testes unitários (Vitest) cobrindo a lógica de `lib/`, rodando em CI a cada alteração (ver [AUDITORIA_SEGURANCA_V3.md](AUDITORIA_SEGURANCA_V3.md)), mas não cobre as telas nem fluxos completos.
 - **Não testei o fluxo real de login/criação de conta** contra o seu projeto Supabase de produção — isso criaria dados de teste reais na sua base de usuários, o que eu não faria sem pedir autorização primeiro.
-- **O fluxo de MFA ainda não foi testado ponta a ponta contra o Supabase real** — o código segue a documentação oficial da API, mas o cadastro/verificação de um autenticador de verdade precisa ser testado por você (ver "Próximo passo" em [MFA.md](MFA.md)).
 - **Não houve teste de penetração (pentest)** formal, nem por ferramenta automatizada (ex: OWASP ZAP, Burp Suite) nem por terceiros independentes.
 - **Não houve teste de carga/performance**, nem teste em múltiplos navegadores reais (Safari, Firefox) além do Chromium usado nas verificações.
 - **Não houve teste do fluxo de instalação como PWA** num dispositivo móvel real.
@@ -341,9 +341,9 @@ Esta seção existe pra responder: **"o que faltaria pra transformar isso num pr
 Estas dependem de configuração no painel do Supabase ou de uma ação sua — não são coisas que o código sozinho resolve:
 
 1. **Rodar `supabase/schema.sql` novamente** no SQL Editor do Supabase (adiciona a coluna `iterations`, os limites de tamanho, e agora também a tabela `shared_items` do compartilhamento — idempotente, seguro rodar de novo). Sem isso, compartilhar uma senha por link não funciona.
-2. **MFA (TOTP): ativado, mas ainda sem teste ponta a ponta.** Cadastre um autenticador de verdade e confirme que o login com o código funciona — ver "Próximo passo" em [MFA.md](MFA.md).
+2. ~~MFA (TOTP)~~ — ✅ ativado e testado ponta a ponta contra o Supabase real (ver [MFA.md](MFA.md)).
 3. **Habilitar "Leaked password protection"** em Authentication → Settings.
-4. **Configurar rate limiting / CAPTCHA** (hCaptcha ou Cloudflare Turnstile) no login e signup.
+4. **CAPTCHA (Cloudflare Turnstile)** no login/criar conta/recuperar senha: código pronto (`components/Turnstile.tsx`, vira no-op sem a env var). Falta criar a conta grátis na Cloudflare, colocar `NEXT_PUBLIC_TURNSTILE_SITE_KEY` na Vercel, e habilitar a proteção no painel do Supabase (Authentication → Settings → CAPTCHA).
 5. **Redefinir sua senha mestra atual**, se quiser migrar seu cofre já existente de 250k pra 600k iterações de PBKDF2 (opcional).
 
 ---

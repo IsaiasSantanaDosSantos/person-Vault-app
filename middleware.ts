@@ -29,13 +29,21 @@ export async function middleware(request: NextRequest) {
   // build não usa eval, então a CSP fica estrita de verdade.
   const isDev = process.env.NODE_ENV === "development";
 
+  // https://challenge.cloudflare.com é o widget de CAPTCHA (Turnstile) da
+  // tela de login/criar conta/recuperar senha (components/Turnstile.tsx) —
+  // precisa carregar script, abrir um iframe com o desafio, e falar com a
+  // API da Cloudflare pra validar. A CSP é montada uma vez pra todo o app
+  // (não por rota), então essa liberação vale em toda página, não só no
+  // login — impacto de segurança é mínimo (é um domínio único e confiável,
+  // sem inline/unsafe).
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""} https://challenge.cloudflare.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data:;
     font-src 'self';
-    connect-src 'self' ${supabaseUrl};
+    connect-src 'self' ${supabaseUrl} https://challenge.cloudflare.com;
+    frame-src https://challenge.cloudflare.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
