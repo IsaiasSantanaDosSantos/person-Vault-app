@@ -154,70 +154,92 @@ export default function VaultPage() {
           </button>
         </nav>
 
-        {/* Telas estreitas: os mesmos itens (mesmo texto, sem ícone) atrás
-            de um menu — o texto em português nunca precisa disputar espaço
-            com o título "Cofre" nem quebrar linha sobre os outros itens. */}
-        <div className="relative sm:hidden">
-          <button
-            onClick={() => setShowMobileMenu((v) => !v)}
-            aria-label="Mais opções"
-            aria-expanded={showMobileMenu}
-            className="text-vault-muted hover:text-vault-text transition p-1 -mr-1"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <circle cx="12" cy="5" r="1.6" />
-              <circle cx="12" cy="12" r="1.6" />
-              <circle cx="12" cy="19" r="1.6" />
+        {/* Telas estreitas: botão hamburguer/X que abre uma gaveta lateral
+            (não um popup solto) com os mesmos itens, mesmo texto em
+            português, um por linha — sem disputa de espaço horizontal. */}
+        <button
+          onClick={() => setShowMobileMenu((v) => !v)}
+          aria-label={showMobileMenu ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={showMobileMenu}
+          className="sm:hidden text-vault-muted hover:text-vault-text transition p-1 -mr-1"
+        >
+          {showMobileMenu ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M5 5l14 14M19 5L5 19" />
             </svg>
-          </button>
-
-          {showMobileMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowMobileMenu(false)} />
-              <div className="absolute right-0 top-full mt-2 w-52 bg-vault-panel border border-vault-border rounded-lg shadow-lg py-1 z-20">
-                <button
-                  onClick={() => {
-                    setShowMobileMenu(false);
-                    setShowActiveShares(true);
-                  }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition"
-                >
-                  Compartilhamentos
-                </button>
-                <button
-                  onClick={() => {
-                    if (!MFA_ENABLED) return;
-                    setShowMobileMenu(false);
-                    setShowMfaSettings(true);
-                  }}
-                  disabled={!MFA_ENABLED}
-                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                >
-                  Duplo fator{!MFA_ENABLED && ' (indisponível)'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMobileMenu(false);
-                    setShowDeleteAll(true);
-                  }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-danger hover:bg-vault-bg transition"
-                >
-                  Excluir dados
-                </button>
-                <button
-                  onClick={() => {
-                    setShowMobileMenu(false);
-                    handleLogout();
-                  }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition"
-                >
-                  Sair
-                </button>
-              </div>
-            </>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           )}
-        </div>
+        </button>
       </header>
+
+      {/* Fundo escurecido — clicar fora da gaveta fecha o menu. */}
+      <div
+        onClick={() => setShowMobileMenu(false)}
+        className={`fixed inset-0 bg-black/50 transition-opacity sm:hidden z-20 ${
+          showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      />
+
+      {/* Gaveta lateral: logo/nome no topo, itens embaixo, "Sair" separado. */}
+      <div
+        className={`fixed top-0 right-0 h-full w-72 max-w-[80vw] bg-vault-panel border-l border-vault-border z-30 flex flex-col transition-transform duration-200 sm:hidden ${
+          showMobileMenu ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-vault-border">
+          <img
+            src="/icons/icon-192.png"
+            alt=""
+            width={24}
+            height={24}
+            className="w-6 h-6 rounded-md"
+          />
+          <h2 className="font-semibold text-sm tracking-tight">Cofre</h2>
+        </div>
+        <nav className="flex flex-col py-2">
+          <button
+            onClick={() => {
+              setShowMobileMenu(false);
+              setShowActiveShares(true);
+            }}
+            className="text-left px-4 py-3 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition"
+          >
+            Compartilhamentos
+          </button>
+          <button
+            onClick={() => {
+              if (!MFA_ENABLED) return;
+              setShowMobileMenu(false);
+              setShowMfaSettings(true);
+            }}
+            disabled={!MFA_ENABLED}
+            className="text-left px-4 py-3 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:hover:bg-transparent disabled:cursor-not-allowed"
+          >
+            Duplo fator{!MFA_ENABLED && ' (indisponível)'}
+          </button>
+          <button
+            onClick={() => {
+              setShowMobileMenu(false);
+              setShowDeleteAll(true);
+            }}
+            className="text-left px-4 py-3 text-sm text-vault-muted hover:text-vault-danger hover:bg-vault-bg transition"
+          >
+            Excluir dados
+          </button>
+        </nav>
+        <button
+          onClick={() => {
+            setShowMobileMenu(false);
+            handleLogout();
+          }}
+          className="mt-auto text-left px-4 py-3 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition border-t border-vault-border"
+        >
+          Sair
+        </button>
+      </div>
 
       <div className="px-4 py-3">
         <input
