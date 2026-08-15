@@ -128,6 +128,7 @@ const toc = [
   ["limitacoes", "Limitações conhecidas"],
   ["pendencias", "Ações manuais pendentes"],
   ["estrutura", "Estrutura de arquivos"],
+  ["cicd", "CI/CD, testes automatizados e operação"],
 ];
 
 export default function DocsPage() {
@@ -456,7 +457,8 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
         <Section id="testes" number="6" title="Testes realizados">
           <Sub title="O que foi feito">
             <UL>
-              <li><Code>npm run build</Code> (compilação de produção completa — TypeScript, lint, geração de páginas estáticas) validado sem erros após cada rodada de mudanças.</li>
+              <li><strong className="text-vault-text">48 testes unitários automatizados</strong> (Vitest) cobrindo toda a lógica de <Code>lib/</Code>: round-trip de criptografia (<Code>crypto.ts</Code>, <Code>shareCrypto.ts</Code>), força da senha mestra, a chave em memória (<Code>keyStore.ts</Code>), o rate limiting de borda, e o acesso a dados do Supabase (<Code>shareStore.ts</Code>, <Code>vaultStore.ts</Code>, com o cliente mockado) — inclui um teste dedicado que trava a regressão da expiração de link corrigida na seção 7 (v3). Roda automaticamente em toda alteração via CI (seção 13).</li>
+              <li><Code>npm run build</Code> (compilação de produção completa — TypeScript, lint, geração de páginas estáticas) validado sem erros após cada rodada de mudanças, e agora também em todo push/PR via CI.</li>
               <li><Code>npm audit</Code> rodado antes e depois da atualização do Next.js, confirmando a eliminação da CVE crítica e das falhas altas aplicáveis a este app.</li>
               <li>Verificação manual no navegador: ausência de erros de console, ausência de violações de CSP, requisições retornando 200 OK, estrutura de acessibilidade da tela de login, layout do modal de senha em diferentes estados.</li>
               <li>Teste isolado de componentes (modal de edição, cabeçalho do cofre com 4 itens) em rotas temporárias sem autenticação, pra confirmar correções de layout — rotas removidas depois de cada teste.</li>
@@ -466,10 +468,10 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
           </Sub>
           <Sub title="O que NÃO foi feito">
             <UL>
-              <li><strong className="text-vault-text">Nenhum teste automatizado</strong> (unitário, integração, e2e) — não há Jest, Playwright, Cypress ou similar configurado.</li>
+              <li><strong className="text-vault-text">Sem testes de integração ou ponta a ponta</strong> (Playwright, Cypress) nem testes de componente React — a cobertura automatizada de hoje é só unitária, sobre a lógica de <Code>lib/</Code>, não sobre as telas.</li>
               <li><strong className="text-vault-text">Não testei o fluxo real de login/criação de conta</strong> contra o projeto Supabase de produção, pra não criar dados de teste reais sem autorização.</li>
               <li><strong className="text-vault-text">O fluxo de MFA ainda não foi testado ponta a ponta contra o Supabase real</strong> — o código segue a documentação oficial da API, mas o cadastro/verificação de um autenticador de verdade precisa ser testado (ver "Próximo passo" em MFA.md).</li>
-              <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros.</li>
+              <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros — o Semgrep (seção 13) é SAST estático, não substitui um pentest.</li>
               <li>Sem teste de carga/performance, nem em navegadores reais além do Chromium usado nas verificações.</li>
               <li>Sem teste do fluxo de instalação como PWA num dispositivo móvel real.</li>
             </UL>
@@ -504,9 +506,15 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
                 "Compartilhamento de senha por link, MFA (feature-flagged), recuperação de senha, exclusão de dados/conta",
                 "Revisão de segurança feita durante a própria implementação: chave de compartilhamento com escopo confirmado, teto de 24h em duas camadas, MFA isolado atrás de um flag sem chamadas em produção enquanto desativado",
               ],
+              [
+                "v3",
+                "2026-08-15",
+                "Fix da expiração de link compartilhado, testes automatizados, CI/CD, SAST, Dependabot, rate limiting de borda, monitoramento externo",
+                "Corrigido um bypass real de RLS (dono logado conseguia abrir o próprio link já expirado); 48 testes travam as invariantes de criptografia; todo push passa por lint+tipos+testes+build antes de main; SAST e Dependabot rodam em toda PR. Ver comparativo detalhado e tabela de prós/contras em AUDITORIA_SEGURANCA_V3.md",
+              ],
             ]}
           />
-          <Sub title="Achados corrigidos ao longo das duas auditorias">
+          <Sub title="Achados corrigidos ao longo das auditorias">
             <OL>
               <li>PBKDF2 abaixo do recomendado → 600k iterações (por perfil, com compatibilidade retroativa)</li>
               <li>Sem exigência de força pra senha mestra → mínimo 12 caracteres + medidor de força + bloqueio de senhas comuns</li>
@@ -516,6 +524,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>Sem limites de tamanho no banco → check constraints adicionados</li>
               <li>Viés estatístico no gerador de senha aleatória → corrigido via rejection sampling</li>
               <li>Campo de senha visível por padrão → oculto por padrão, com botão mostrar/ocultar</li>
+              <li>Link compartilhado expirado continuava acessível pro dono logado (RLS de select do dono não checa <Code>expires_at</Code>, de propósito, pra ele ver histórico) → <Code>getShare()</Code> agora valida a expiração explicitamente no código, não só via RLS</li>
             </OL>
           </Sub>
         </Section>
@@ -607,10 +616,10 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
           <Sub title="9.2 Infraestrutura e operação">
             <UL>
               <li>Infraestrutura dedicada (hoje roda em plano gratuito do Supabase) com backups multi-região e plano de recuperação de desastre.</li>
-              <li>Monitoramento, alertas e uma página de status pública, com SLA de disponibilidade formal.</li>
-              <li>Pipeline de CI/CD com testes automatizados e varredura de segurança automática (SAST/DAST, análise de dependências) antes de cada deploy.</li>
-              <li>Rate limiting e proteção contra DDoS em nível de infraestrutura (WAF).</li>
-              <li>Processo formal de troca de senha mestra, com reencriptação automática de todos os itens existentes.</li>
+              <li>✅ <strong className="text-vault-text">Implementado</strong> — monitoramento externo (UptimeRobot) e status page pública (detalhes e link em <Code>MONITORAMENTO.md</Code>). Fica explícito ali que é monitoramento informal, de melhor esforço — um <strong className="text-vault-text">SLA contratual formal</strong> de disponibilidade continua sendo item de produto comercial, não de projeto pessoal.</li>
+              <li>✅ <strong className="text-vault-text">Implementado</strong> — pipeline de CI/CD (GitHub Actions): lint + checagem de tipos + os 48 testes automatizados + build de produção em toda alteração; SAST (Semgrep) e atualização automática de dependências (Dependabot) rodando em toda PR. Ver detalhes na seção 13.</li>
+              <li>🟡 <strong className="text-vault-text">Parcialmente implementado</strong> — throttle de borda (Upstash) na rota pública <Code>/share/[id]</Code>, contra enumeração de links (seção 13). Proteção de DDoS dedicada em nível de infraestrutura (WAF, ex: Cloudflare) continua fora de escopo — e rate limiting/CAPTCHA no login em si depende do painel do Supabase (seção 11, item 4), não é algo que dê pra fazer só no código deste app.</li>
+              <li>Processo formal de troca de senha mestra, com reencriptação automática de todos os itens existentes — deliberadamente deixado por último, pra avaliar prós e contras depois que o resto desta lista estivesse pronto.</li>
             </UL>
           </Sub>
           <Sub title="9.3 Produto e experiência">
@@ -651,7 +660,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code>, os limites de tamanho, e agora também a tabela <Code>shared_items</Code> do compartilhamento — idempotente). Sem isso, compartilhar por link não funciona.</li>
             <li>MFA (TOTP): ativado, mas ainda sem teste ponta a ponta — cadastre um autenticador de verdade e confirme o login (ver <Code>MFA.md</Code>).</li>
             <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
-            <li>Configurar rate limiting / CAPTCHA no login e signup.</li>
+            <li>Configurar rate limiting / CAPTCHA no login e signup (painel do Supabase — diferente do throttle de borda em <Code>/share/[id]</Code> já implementado no código, ver seção 13).</li>
             <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>
           </OL>
         </Section>
@@ -685,13 +694,22 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
 │   ├── vaultStore.ts             # CRUD contra o Supabase (vault_profiles, vault_items)
 │   ├── shareStore.ts             # CRUD contra o Supabase (shared_items)
 │   ├── mfaStore.ts               # Camada sobre supabase.auth.mfa.*
+│   ├── rateLimit.ts              # Throttle de borda em /share/[id] (Upstash, no-op sem env vars)
 │   ├── features.ts               # Interruptor MFA_ENABLED
 │   ├── constants.ts              # E-mail de suporte pra pedidos de exclusão de conta
-│   └── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
+│   ├── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
+│   └── *.test.ts                 # 48 testes unitários (Vitest) — um por arquivo acima
 ├── supabase/
 │   └── schema.sql                # Tabelas, RLS, constraints (rodar no SQL Editor)
-├── middleware.ts                 # Content-Security-Policy com nonce por requisição
+├── .github/
+│   ├── workflows/ci.yml              # Lint + tipos + testes + build em toda PR
+│   ├── workflows/promote-to-main.yml # Promove pre-producao -> main quando o ci passa
+│   ├── workflows/semgrep.yml         # SAST, roda em qualquer visibilidade de repo
+│   └── dependabot.yml                # Atualização semanal de npm + github-actions
+├── middleware.ts                 # CSP com nonce por requisição + rate limiting de /share/*
 ├── next.config.mjs               # Cabeçalhos de segurança (HSTS, X-Frame-Options, etc.)
+├── vitest.config.mts             # Configuração dos testes unitários
+├── .eslintrc.json                # Configuração do lint (usado pelo CI)
 ├── public/
 │   ├── manifest.json             # Manifest do PWA (cores, ícones, screenshots)
 │   ├── sw.js                     # Service worker
@@ -700,9 +718,68 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
 │   └── guide/                    # Prints usados no guia de uso (/ajuda)
 ├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
+├── AUDITORIA_SEGURANCA_V3.md     # Terceira auditoria — testes, CI/CD, SAST, rate limiting, monitoramento
 ├── MFA.md                        # O que foi feito sobre Duplo fator e como ativar
+├── MONITORAMENTO.md              # Uptime, alertas e status page pública (sem SLA formal)
 ├── DOCUMENTACAO.md               # Guia rápido de instalação/deploy
 └── README.md                     # Documentação técnica completa (este conteúdo, em markdown)`}</Block>
+        </Section>
+
+        <Section id="cicd" number="13" title="CI/CD, testes automatizados e operação">
+          <P>
+            Implementado na v3 (seção 7), fechando boa parte do que a seção 9.2 listava como
+            "caminho para um produto comercial" — adaptado ao que faz sentido pra um projeto
+            pessoal, sem nenhum custo recorrente.
+          </P>
+          <Sub title="13.1 Fluxo de branches">
+            <P>
+              Desenvolvimento acontece em branches de feature → PR pra <Code>pre-producao</Code>{" "}
+              (roda o check <Code>ci</Code>) → depois de mergeado, um segundo workflow abre
+              automaticamente uma PR <Code>pre-producao → main</Code>, espera o mesmo check{" "}
+              <Code>ci</Code> passar de novo, e mergeia sozinho — sem clique manual. A{" "}
+              <Code>main</Code> é a branch que a Vercel usa pra produção.
+            </P>
+            <P>
+              O merge automático não depende do recurso nativo "auto-merge" do GitHub (que em
+              repositório privado só existe em plano pago) — o workflow espera o check terminar e
+              chama o merge diretamente, então funciona igual num repositório privado gratuito.
+              Autenticação do workflow via um Personal Access Token com escopo mínimo (permissão
+              só de conteúdo + pull requests, restrito a este repositório).
+            </P>
+          </Sub>
+          <Sub title="13.2 O que o CI verifica em toda alteração">
+            <UL>
+              <li><Code>next lint</Code> (ESLint).</li>
+              <li><Code>tsc --noEmit</Code> (checagem de tipos).</li>
+              <li>Os 48 testes unitários (Vitest).</li>
+              <li><Code>next build</Code> (build de produção completo).</li>
+              <li>Semgrep (SAST) com regras públicas de JavaScript/TypeScript/React/OWASP Top 10.</li>
+            </UL>
+          </Sub>
+          <Sub title="13.3 Dependências">
+            <P>
+              Dependabot abre PRs semanais de atualização (npm e GitHub Actions), agrupando bumps
+              de patch/minor numa PR só pra não gerar ruído excessivo. Alertas de vulnerabilidade
+              em dependências habilitados no painel do repositório.
+            </P>
+          </Sub>
+          <Sub title="13.4 Rate limiting de borda">
+            <P>
+              <Code>middleware.ts</Code> aplica um throttle (janela deslizante, via Upstash Redis)
+              só na rota pública <Code>/share/[id]</Code>, como camada extra contra enumeração de
+              links compartilhados. Falha aberta por design — se o Upstash não estiver configurado
+              ou responder com erro, a requisição segue normalmente; isso é mitigação de abuso, não
+              a fronteira de segurança real do app (essa continua sendo RLS + criptografia
+              zero-knowledge, ver seção 5).
+            </P>
+          </Sub>
+          <Sub title="13.5 Monitoramento">
+            <P>
+              Uptime externo (UptimeRobot, plano gratuito) verificando a aplicação e a borda do
+              projeto Supabase a cada 5 minutos, com alerta por e-mail e uma status page pública.
+              Detalhes completos, incluindo o link da status page, em <Code>MONITORAMENTO.md</Code>.
+            </P>
+          </Sub>
         </Section>
       </div>
     </div>
