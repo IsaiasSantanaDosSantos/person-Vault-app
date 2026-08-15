@@ -59,7 +59,7 @@ const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => voi
     return (
       <>
         <Script
-          src="https://challenge.cloudflare.com/turnstile/v0/api.js"
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
           strategy="afterInteractive"
           onReady={() => setScriptReady(true)}
         />
