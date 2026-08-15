@@ -154,24 +154,18 @@ export default function VaultPage() {
           </button>
         </nav>
 
-        {/* Telas estreitas: botão hamburguer/X que abre uma gaveta lateral
+        {/* Telas estreitas: botão hamburguer que abre uma gaveta lateral
             (não um popup solto) com os mesmos itens, mesmo texto em
             português, um por linha — sem disputa de espaço horizontal. */}
         <button
-          onClick={() => setShowMobileMenu((v) => !v)}
-          aria-label={showMobileMenu ? 'Fechar menu' : 'Abrir menu'}
+          onClick={() => setShowMobileMenu(true)}
+          aria-label="Abrir menu"
           aria-expanded={showMobileMenu}
           className="sm:hidden text-vault-muted hover:text-vault-text transition p-1 -mr-1"
         >
-          {showMobileMenu ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M5 5l14 14M19 5L5 19" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
         </button>
       </header>
 
@@ -189,15 +183,26 @@ export default function VaultPage() {
           showMobileMenu ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-vault-border">
-          <img
-            src="/icons/icon-192.png"
-            alt=""
-            width={24}
-            height={24}
-            className="w-6 h-6 rounded-md"
-          />
-          <h2 className="font-semibold text-sm tracking-tight">Cofre</h2>
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-vault-border">
+          <div className="flex items-center gap-2">
+            <img
+              src="/icons/icon-192.png"
+              alt=""
+              width={24}
+              height={24}
+              className="w-6 h-6 rounded-md"
+            />
+            <h2 className="font-semibold text-sm tracking-tight">Cofre</h2>
+          </div>
+          <button
+            onClick={() => setShowMobileMenu(false)}
+            aria-label="Fechar menu"
+            className="text-vault-muted hover:text-vault-text transition p-1 -mr-1"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M5 5l14 14M19 5L5 19" />
+            </svg>
+          </button>
         </div>
         <nav className="flex flex-col py-2">
           <button
