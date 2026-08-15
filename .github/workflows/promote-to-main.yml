@@ -1,0 +1,61 @@
+name: Promote pre-producao to main
+
+on:
+  push:
+    branches: [pre-producao]
+
+# Usa um PAT pessoal (secret PROMOTE_PAT), não o GITHUB_TOKEN padrão:
+# PRs/merges feitos com o token padrão são atribuídos ao github-actions[bot]
+# e, por regra anti-recursão do GitHub, não disparam outros workflows
+# (pull_request/push) — o que faria o ci.yml nunca rodar de novo nessa PR
+# de promoção, travando pra sempre. Com um PAT, a autoria vira a conta do
+# dono do repo e os workflows disparam normalmente.
+#
+# Não usamos `gh pr merge --auto`: esse recurso liga o "Allow auto-merge"
+# nativo do GitHub, que em repositório PRIVADO só está disponível em
+# planos pagos (Pro/Team/Enterprise) — não faz sentido pagar por isso só
+# pra manter o repo privado. Em vez disso, o workflow espera o check `ci`
+# terminar (gh pr checks --watch) e só então chama `gh pr merge` direto —
+# mesmo resultado (só mergeia se os testes passarem), sem depender de
+# nenhum recurso pago.
+env:
+  GH_TOKEN: ${{ secrets.PROMOTE_PAT }}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Abrir (ou reaproveitar) a PR pre-producao -> main
+        id: pr
+        run: |
+          set -e
+          existing=$(gh pr list --base main --head pre-producao --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "number=$existing" >> "$GITHUB_OUTPUT"
+          else
+            url=$(gh pr create --base main --head pre-producao \
+              --title "Promover pre-producao para main" \
+              --body "PR automática: mergeia sozinha quando o check \`ci\` passar.")
+            number=$(gh pr view "$url" --json number --jq '.number')
+            echo "number=$number" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Esperar o check "ci" aparecer e terminar
+        run: |
+          set -e
+          number="${{ steps.pr.outputs.number }}"
+          for i in $(seq 1 12); do
+            total=$(gh pr checks "$number" --json name --jq 'length' 2>/dev/null || echo 0)
+            if [ "$total" -gt 0 ]; then break; fi
+            sleep 10
+          done
+          gh pr checks "$number" --watch --interval 15
+
+      - name: Mergear pra main
+        run: gh pr merge "${{ steps.pr.outputs.number }}" --merge

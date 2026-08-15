@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [pre-producao, main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholders — o build nunca chama o Supabase de verdade (app/layout.tsx
+      # força renderização dinâmica), só precisa de strings não-vazias pra
+      # passar pela asserção não-nula em lib/supabaseClient.ts.
+      NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

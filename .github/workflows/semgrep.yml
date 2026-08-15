@@ -1,0 +1,32 @@
+name: SAST (Semgrep)
+
+# CodeQL (Code Scanning) só publica resultados no repo em repositórios
+# públicos ou com GitHub Advanced Security (pago, fora de Enterprise/Team) —
+# não vale a pena pra um projeto pessoal privado. O Semgrep roda de graça
+# em qualquer visibilidade de repo, sem precisar de conta nem token: usa só
+# os rulesets públicos do registro (p/...) e falha o job se achar algo.
+
+on:
+  push:
+    branches: [main, pre-producao]
+  pull_request:
+    branches: [main, pre-producao]
+  schedule:
+    - cron: "0 6 * * 1" # toda segunda, 06:00 UTC
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rodar Semgrep (JS/TS + OWASP Top 10 + React)
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/typescript \
+            --config p/react \
+            --config p/owasp-top-ten \
+            --error
