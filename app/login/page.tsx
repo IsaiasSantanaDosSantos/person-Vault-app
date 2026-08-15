@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -19,9 +19,15 @@ import { SUPPORT_EMAIL } from "@/lib/constants";
 import { MFA_ENABLED } from "@/lib/features";
 import { getAssuranceLevel, needsMfaChallenge, listFactors, verifyLoginChallenge } from "@/lib/mfaStore";
 import PasswordInput from "@/components/PasswordInput";
+import Turnstile, { TurnstileHandle } from "@/components/Turnstile";
 
 type Stage = "account" | "master" | "forgot" | "mfa";
 type Mode = "login" | "signup";
+
+// Sem essa env var, CAPTCHA_ENABLED fica false e o botão nunca fica
+// bloqueado esperando token — o app funciona normal, igual antes da conta
+// da Cloudflare existir (ver components/Turnstile.tsx).
+const CAPTCHA_ENABLED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +46,13 @@ export default function LoginPage() {
   const [forgotSent, setForgotSent] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
+
+  function resetCaptcha() {
+    setCaptchaToken(null);
+    turnstileRef.current?.reset();
+  }
 
   // Depois de confirmar e-mail/senha (e o segundo fator, se ativado),
   // decide se precisa criar um perfil de criptografia novo ou pedir a
@@ -102,11 +115,13 @@ export default function LoginPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password: accountPassword,
+          options: { captchaToken: captchaToken ?? undefined },
         });
         if (error) throw error;
         if (!data.session) {
           setError("Verifique seu e-mail para confirmar a conta e depois faça login.");
           setLoading(false);
+          resetCaptcha();
           return;
         }
         setUserId(data.user!.id);
@@ -114,6 +129,7 @@ export default function LoginPage() {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password: accountPassword,
+          options: { captchaToken: captchaToken ?? undefined },
         });
         if (error) throw error;
         setUserId(data.user.id);
@@ -135,6 +151,7 @@ export default function LoginPage() {
       await proceedPastAuth(uid);
     } catch (err: any) {
       setError(traduzErro(err.message));
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -166,11 +183,13 @@ export default function LoginPage() {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
         redirectTo: `${window.location.origin}/reset-password`,
+        captchaToken: captchaToken ?? undefined,
       });
       if (error) throw error;
       setForgotSent(true);
     } catch (err: any) {
       setError(traduzErro(err.message));
+      resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -297,9 +316,10 @@ export default function LoginPage() {
               value={accountPassword}
               onChange={setAccountPassword}
             />
+            <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} />
             {error && <p className="text-vault-danger text-xs">{error}</p>}
             <button
-              disabled={loading}
+              disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
               className="w-full bg-vault-steel hover:bg-vault-steelBright transition rounded-md py-2 text-sm font-medium text-vault-bg disabled:opacity-50"
             >
               {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
@@ -347,10 +367,11 @@ export default function LoginPage() {
                 className="w-full bg-vault-panel border border-vault-border rounded-md px-3 py-2 text-sm outline-none focus:border-vault-steel"
               />
             )}
+            {!forgotSent && <Turnstile ref={turnstileRef} onVerify={setCaptchaToken} />}
             {error && <p className="text-vault-danger text-xs">{error}</p>}
             {!forgotSent && (
               <button
-                disabled={loading}
+                disabled={loading || (CAPTCHA_ENABLED && !captchaToken)}
                 className="w-full bg-vault-steel hover:bg-vault-steelBright transition rounded-md py-2 text-sm font-medium text-vault-bg disabled:opacity-50"
               >
                 {loading ? "Enviando..." : "Enviar link de recuperação"}

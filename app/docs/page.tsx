@@ -464,13 +464,13 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>Teste isolado de componentes (modal de edição, cabeçalho do cofre com 4 itens) em rotas temporárias sem autenticação, pra confirmar correções de layout — rotas removidas depois de cada teste.</li>
               <li>Lógica de criptografia do compartilhamento validada isoladamente no console do navegador: gerar chave → cifrar → exportar em base64url → reimportar só a partir da string → decifrar — confirmado que bate com o texto original.</li>
               <li>Página pública <Code>/share/[id]</Code> testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar.</li>
+              <li><strong className="text-vault-text">MFA testado e confirmado ponta a ponta</strong> contra o Supabase real: sem autenticador cadastrado, o login segue normal; ao cadastrar um em "Duplo fator", o código de 6 dígitos passa a ser exigido em todo login seguinte, logo após a conta autenticar e antes da senha mestra (ver <Code>MFA.md</Code>).</li>
             </UL>
           </Sub>
           <Sub title="O que NÃO foi feito">
             <UL>
               <li><strong className="text-vault-text">Sem testes de integração ou ponta a ponta</strong> (Playwright, Cypress) nem testes de componente React — a cobertura automatizada de hoje é só unitária, sobre a lógica de <Code>lib/</Code>, não sobre as telas.</li>
               <li><strong className="text-vault-text">Não testei o fluxo real de login/criação de conta</strong> contra o projeto Supabase de produção, pra não criar dados de teste reais sem autorização.</li>
-              <li><strong className="text-vault-text">O fluxo de MFA ainda não foi testado ponta a ponta contra o Supabase real</strong> — o código segue a documentação oficial da API, mas o cadastro/verificação de um autenticador de verdade precisa ser testado (ver "Próximo passo" em MFA.md).</li>
               <li><strong className="text-vault-text">Sem teste de penetração formal</strong>, nem automatizado (OWASP ZAP, Burp Suite) nem por terceiros — o Semgrep (seção 13) é SAST estático, não substitui um pentest.</li>
               <li>Sem teste de carga/performance, nem em navegadores reais além do Chromium usado nas verificações.</li>
               <li>Sem teste do fluxo de instalação como PWA num dispositivo móvel real.</li>
@@ -658,9 +658,8 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
           </P>
           <OL>
             <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code>, os limites de tamanho, e agora também a tabela <Code>shared_items</Code> do compartilhamento — idempotente). Sem isso, compartilhar por link não funciona.</li>
-            <li>MFA (TOTP): ativado, mas ainda sem teste ponta a ponta — cadastre um autenticador de verdade e confirme o login (ver <Code>MFA.md</Code>).</li>
             <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
-            <li>Configurar rate limiting / CAPTCHA no login e signup (painel do Supabase — diferente do throttle de borda em <Code>/share/[id]</Code> já implementado no código, ver seção 13).</li>
+            <li>CAPTCHA (Cloudflare Turnstile) no login/criar conta/recuperar senha: código pronto (<Code>components/Turnstile.tsx</Code>, vira no-op sem a env var). Falta criar a conta grátis na Cloudflare, colocar <Code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</Code> na Vercel, e habilitar a proteção no painel do Supabase (Authentication → Settings → CAPTCHA) — diferente do throttle de borda em <Code>/share/[id]</Code>, que já está 100% ativo (ver seção 13).</li>
             <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>
           </OL>
         </Section>
