@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkShareRateLimit } from "./lib/rateLimit";
 
 /**
  * Este middleware NÃO faz nenhuma decisão de autenticação/autorização —
  * a proteção real dos dados continua sendo o Row Level Security do
- * Supabase (supabase/schema.sql). Ele só existe para gerar um nonce por
+ * Supabase (supabase/schema.sql). Ele existe pra: (1) gerar um nonce por
  * requisição e montar a Content-Security-Policy, que é o que impede um
  * eventual XSS de conseguir chamar getKey()/decryptText() e exfiltrar o
- * cofre — ver AUDITORIA_SEGURANCA.md, achados #3 e #5.
+ * cofre — ver AUDITORIA_SEGURANCA.md, achados #3 e #5; e (2) aplicar um
+ * throttle leve em /share/* (lib/rateLimit.ts), como camada extra contra
+ * enumeração de links — sem Upstash configurado, isso vira no-op.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/share/")) {
+    const allowed = await checkShareRateLimit(request.headers);
+    if (!allowed) {
+      return new NextResponse("Muitas requisições. Tente novamente em instantes.", {
+        status: 429,
+        headers: { "Retry-After": "60" },
+      });
+    }
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   // O webpack devtool do `next dev` (hot reload) roda módulos via eval() —
