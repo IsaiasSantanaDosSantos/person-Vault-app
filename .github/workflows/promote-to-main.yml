@@ -14,12 +14,23 @@ on:
 # Não usamos `gh pr merge --auto`: esse recurso liga o "Allow auto-merge"
 # nativo do GitHub, que em repositório PRIVADO só está disponível em
 # planos pagos (Pro/Team/Enterprise) — não faz sentido pagar por isso só
-# pra manter o repo privado. Em vez disso, o workflow espera o check `ci`
-# terminar (gh pr checks --watch) e só então chama `gh pr merge` direto —
-# mesmo resultado (só mergeia se os testes passarem), sem depender de
-# nenhum recurso pago.
-env:
-  GH_TOKEN: ${{ secrets.PROMOTE_PAT }}
+# pra manter o repo privado. Em vez disso, o workflow espera o run do `ci`
+# terminar e só então mergeia — mesmo resultado (só mergeia se os testes
+# passarem), sem depender de nenhum recurso pago.
+#
+# Não usamos `gh pr checks` pra esperar: esse comando lê o campo GraphQL
+# `statusCheckRollup`, que não é acessível por Personal Access Token
+# fine-grained (retorna "Resource not accessible by personal access
+# token", mesmo com todas as permissões de repositório concedidas — é uma
+# limitação da API do GitHub pra esse tipo de token, não uma permissão
+# faltando pra marcar). Em vez disso, esperamos o *run* do workflow `ci`
+# disparado pelo mesmo push (via `gh run list`/`gh run watch`, API de
+# Actions, que funciona normalmente com PAT fine-grained com a permissão
+# "Actions: Read-only") — e só depois abrimos e mergeamos a PR.
+#
+# GH_TOKEN fica em env de STEP, não de workflow — assim o secret só existe
+# nos passos que de fato chamam `gh`, não em todo o job (Semgrep aponta
+# isso como achado de segurança: escopo de secret desnecessariamente amplo).
 
 permissions:
   contents: write
@@ -29,10 +40,30 @@ jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Esperar o run do "ci" pra este commit terminar
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_PAT }}
+        run: |
+          set -e
+          sha="${{ github.sha }}"
+          run_id=""
+          for i in $(seq 1 12); do
+            run_id=$(gh run list --workflow=ci.yml --commit "$sha" --json databaseId --jq '.[0].databaseId' 2>/dev/null || echo "")
+            if [ -n "$run_id" ]; then break; fi
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "Não encontrei o run do ci.yml pra este commit ($sha)." >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --exit-status
 
       - name: Abrir (ou reaproveitar) a PR pre-producao -> main
         id: pr
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_PAT }}
         run: |
           set -e
           existing=$(gh pr list --base main --head pre-producao --state open --json number --jq '.[0].number')
@@ -41,21 +72,12 @@ jobs:
           else
             url=$(gh pr create --base main --head pre-producao \
               --title "Promover pre-producao para main" \
-              --body "PR automática: mergeia sozinha quando o check \`ci\` passar.")
+              --body "PR automática: aberta depois que o \`ci\` já passou pra este commit.")
             number=$(gh pr view "$url" --json number --jq '.number')
             echo "number=$number" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Esperar o check "ci" aparecer e terminar
-        run: |
-          set -e
-          number="${{ steps.pr.outputs.number }}"
-          for i in $(seq 1 12); do
-            total=$(gh pr checks "$number" --json name --jq 'length' 2>/dev/null || echo 0)
-            if [ "$total" -gt 0 ]; then break; fi
-            sleep 10
-          done
-          gh pr checks "$number" --watch --interval 15
-
       - name: Mergear pra main
+        env:
+          GH_TOKEN: ${{ secrets.PROMOTE_PAT }}
         run: gh pr merge "${{ steps.pr.outputs.number }}" --merge
