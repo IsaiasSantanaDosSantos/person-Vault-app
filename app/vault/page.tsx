@@ -29,6 +29,7 @@ export default function VaultPage() {
   const [showDeleteAll, setShowDeleteAll] = useState(false);
   const [showActiveShares, setShowActiveShares] = useState(false);
   const [showMfaSettings, setShowMfaSettings] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -123,7 +124,8 @@ export default function VaultPage() {
           />
           <h1 className="font-semibold text-sm tracking-tight">Cofre</h1>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Telas largas: todos os itens visíveis numa linha só. */}
+        <nav className="hidden sm:flex items-center gap-3">
           <button
             onClick={() => setShowActiveShares(true)}
             className="text-xs text-vault-muted hover:text-vault-text transition"
@@ -150,6 +152,70 @@ export default function VaultPage() {
           >
             Sair
           </button>
+        </nav>
+
+        {/* Telas estreitas: os mesmos itens (mesmo texto, sem ícone) atrás
+            de um menu — o texto em português nunca precisa disputar espaço
+            com o título "Cofre" nem quebrar linha sobre os outros itens. */}
+        <div className="relative sm:hidden">
+          <button
+            onClick={() => setShowMobileMenu((v) => !v)}
+            aria-label="Mais opções"
+            aria-expanded={showMobileMenu}
+            className="text-vault-muted hover:text-vault-text transition p-1 -mr-1"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <circle cx="12" cy="5" r="1.6" />
+              <circle cx="12" cy="12" r="1.6" />
+              <circle cx="12" cy="19" r="1.6" />
+            </svg>
+          </button>
+
+          {showMobileMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowMobileMenu(false)} />
+              <div className="absolute right-0 top-full mt-2 w-52 bg-vault-panel border border-vault-border rounded-lg shadow-lg py-1 z-20">
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    setShowActiveShares(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition"
+                >
+                  Compartilhamentos
+                </button>
+                <button
+                  onClick={() => {
+                    if (!MFA_ENABLED) return;
+                    setShowMobileMenu(false);
+                    setShowMfaSettings(true);
+                  }}
+                  disabled={!MFA_ENABLED}
+                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition disabled:opacity-40 disabled:hover:text-vault-muted disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                >
+                  Duplo fator{!MFA_ENABLED && ' (indisponível)'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    setShowDeleteAll(true);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-danger hover:bg-vault-bg transition"
+                >
+                  Excluir dados
+                </button>
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false);
+                    handleLogout();
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-vault-muted hover:text-vault-text hover:bg-vault-bg transition"
+                >
+                  Sair
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 

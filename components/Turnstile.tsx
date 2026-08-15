@@ -46,6 +46,7 @@ const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => voi
       widgetId.current = window.turnstile.render(`#${containerId}`, {
         sitekey: SITE_KEY,
         theme: "dark",
+        size: "flexible",
         callback: onVerify,
       });
       return () => {
@@ -63,7 +64,7 @@ const Turnstile = forwardRef<TurnstileHandle, { onVerify: (token: string) => voi
           strategy="afterInteractive"
           onReady={() => setScriptReady(true)}
         />
-        <div id={containerId} />
+        <div id={containerId} className="w-full" />
       </>
     );
   }
