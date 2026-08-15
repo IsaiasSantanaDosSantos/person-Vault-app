@@ -35,10 +35,18 @@ export async function createShare(params: {
   return data;
 }
 
-/** Usado pela página pública (/share/[id]) — RLS só entrega se ainda não expirou. */
+/**
+ * Usado pela página pública (/share/[id]). A policy pública de RLS já barra
+ * quem não é dono depois de expirado, mas o dono tem uma policy própria de
+ * select (sem checar expires_at, pra poder ver o histórico) — então, se o
+ * link for aberto no mesmo navegador em que o dono está logado, o RLS sozinho
+ * deixaria passar mesmo expirado. Por isso o expires_at é checado aqui também.
+ */
 export async function getShare(id: string): Promise<SharedItem | null> {
   const { data, error } = await supabase.from("shared_items").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
+  if (!data) return null;
+  if (new Date(data.expires_at).getTime() <= Date.now()) return null;
   return data;
 }
 
