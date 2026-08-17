@@ -146,7 +146,7 @@ export default function DocsPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
         <p className="text-xs uppercase tracking-wide text-vault-muted mb-2">
-          Documentação técnica · v1.1 · 2026-08-14
+          Documentação técnica · v1.2 · 2026-08-17
         </p>
         <h1 className="text-2xl font-semibold text-vault-text mb-4">
           Documentação Técnica — Cofre de Senhas Pessoal
@@ -198,6 +198,19 @@ export default function DocsPage() {
               seção 9
             </a>
             , como um upgrade futuro.
+          </P>
+          <P>
+            <strong className="text-vault-text">Decisão de uso:</strong> depois de fechar esta
+            rodada de revisão e endurecimento, decidi manter este projeto como peça de portfólio e
+            estudo de arquitetura de segurança, e não como o gerenciador de senhas do meu dia a
+            dia. Meus segredos de maior risco (banco, cartão, servidores) ficam num gerenciador
+            comercial com auditoria de terceiros publicada e programa de bug bounty ativo
+            (Bitwarden) — o motivo dessa escolha, mesmo com o resultado positivo desta revisão,
+            está detalhado na{" "}
+            <a href="#nivel" className="text-vault-steel hover:text-vault-steelBright">
+              seção 8.3
+            </a>
+            .
           </P>
         </Section>
 
@@ -465,6 +478,12 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>Lógica de criptografia do compartilhamento validada isoladamente no console do navegador: gerar chave → cifrar → exportar em base64url → reimportar só a partir da string → decifrar — confirmado que bate com o texto original.</li>
               <li>Página pública <Code>/share/[id]</Code> testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar.</li>
               <li><strong className="text-vault-text">MFA testado e confirmado ponta a ponta</strong> contra o Supabase real: sem autenticador cadastrado, o login segue normal; ao cadastrar um em "Duplo fator", o código de 6 dígitos passa a ser exigido em todo login seguinte, logo após a conta autenticar e antes da senha mestra (ver <Code>MFA.md</Code>).</li>
+              <li><strong className="text-vault-text">CAPTCHA (Cloudflare Turnstile) testado e confirmado</strong> contra o Supabase real, nos três fluxos (entrar, criar conta, recuperar senha): tentativa sem o widget resolvido é rejeitada pelo Supabase (<Code>captcha protection: request disallowed</Code>), e com o token válido o fluxo segue normal.</li>
+              <li><strong className="text-vault-text">Revisão de código completa</strong> (não só o que mudou numa alteração pontual) de toda a camada sensível — <Code>lib/crypto.ts</Code>, <Code>lib/shareCrypto.ts</Code>, <Code>lib/keyStore.ts</Code>, <Code>middleware.ts</Code>, <Code>supabase/schema.sql</Code>, os fluxos de login e de compartilhamento — sem nenhum achado novo.</li>
+              <li><Code>npm audit</Code> reexecutado: 5 avisos de severidade alta, todos originados de uma dependência interna do Next.js (<Code>postcss</Code>, usada só em tempo de build) — sem exploração possível em runtime deste app, já que ele não processa CSS de terceiros. Resolve só com upgrade major do Next.js (ver seção 9.2).</li>
+              <li><strong className="text-vault-text">Mozilla HTTP Observatory</strong> (ferramenta externa e independente): nota <strong className="text-vault-text">A+, 115 de 100 pontos, 10 de 10 testes passados</strong> — confirma CSP, HSTS, X-Frame-Options, Referrer-Policy e demais cabeçalhos como corretamente implementados em produção.</li>
+              <li><strong className="text-vault-text">TLS/HTTPS confirmado em produção</strong>: handshake correto, HSTS ativo com <Code>preload</Code> e validade de 2 anos, e redirecionamento automático (308) de HTTP para HTTPS sem brecha de downgrade.</li>
+              <li><strong className="text-vault-text">Supabase Security Advisor</strong> (linter oficial de segurança do banco): <strong className="text-vault-text">0 erros</strong> — o único aviso é sobre a proteção de senha vazada, que é recurso do plano Pro (ver seção 11, item 3).</li>
             </UL>
           </Sub>
           <Sub title="O que NÃO foi feito">
@@ -512,6 +531,18 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
                 "Fix da expiração de link compartilhado, testes automatizados, CI/CD, SAST, Dependabot, rate limiting de borda, monitoramento externo",
                 "Corrigido um bypass real de RLS (dono logado conseguia abrir o próprio link já expirado); 48 testes travam as invariantes de criptografia; todo push passa por lint+tipos+testes+build antes de main; SAST e Dependabot rodam em toda PR. Ver comparativo detalhado e tabela de prós/contras em AUDITORIA_SEGURANCA_V3.md",
               ],
+              [
+                "v4",
+                "2026-08-15",
+                "CAPTCHA (Cloudflare Turnstile) no login/criar conta/recuperar senha; reconfirmação de MFA e da migração do schema.sql",
+                "CAPTCHA implementado, configurado (Cloudflare + Supabase) e testado ponta a ponta nos três fluxos; nenhum achado novo — a lista de pendências estava desatualizada (MFA e schema.sql já resolvidos ainda apareciam como pendentes), corrigida nesta rodada. Ver AUDITORIA_SEGURANCA_V4.md",
+              ],
+              [
+                "v5 (esta rodada)",
+                "2026-08-17",
+                "Revisão de código completa (não só alterações pontuais), verificação externa via Mozilla HTTP Observatory e Supabase Security Advisor, endurecimento da política de senha da conta",
+                "Nenhum achado novo de vulnerabilidade — a arquitetura se sustenta sob revisão independente. Nota A+ (115/100, 10/10) no Mozilla Observatory; 0 erros no Security Advisor do Supabase. Endurecida a política de senha da conta (mínimo 6→10 caracteres, passou a exigir maiúscula/minúscula/número/símbolo). Esclarecido que \"leaked password protection\" é recurso exclusivo do plano Pro do Supabase — reclassificado de pendência esquecida para limitação de plano conhecida.",
+              ],
             ]}
           />
           <Sub title="Achados corrigidos ao longo das auditorias">
@@ -539,7 +570,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               O que posso afirmar com base nas auditorias feitas:
             </P>
             <UL>
-              <li>Nenhuma vulnerabilidade conhecida e não mitigada foi encontrada no código revisado, nas duas rodadas de auditoria.</li>
+              <li>Nenhuma vulnerabilidade conhecida e não mitigada foi encontrada no código revisado, nas cinco rodadas de auditoria (seção 7).</li>
               <li>A arquitetura (zero-knowledge, chave nunca sai do dispositivo, RLS por linha, criptografia autenticada) é estruturalmente correta e segue práticas atuais recomendadas (OWASP).</li>
               <li>As camadas de defesa em profundidade que normalmente faltam em projetos pessoais desse tipo (CSP, cabeçalhos, política de senha forte, bloqueio por inatividade) foram implementadas.</li>
             </UL>
@@ -578,8 +609,8 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
           </Sub>
           <Sub title="8.3 Sobre auditoria independente">
             <P>
-              As duas auditorias deste documento foram feitas internamente, a pedido do
-              proprietário — não por uma empresa de segurança terceirizada. Isso é diferente do
+              As cinco rodadas de auditoria deste documento foram feitas internamente — não por
+              uma empresa de segurança terceirizada. Isso é diferente do
               histórico de escrutínio público que produtos maduros como Bitwarden, 1Password ou
               KeePass acumulam ao longo de anos, incluindo programas de recompensa por
               vulnerabilidades (bug bounty) abertos a pesquisadores externos. Isso não significa
@@ -591,6 +622,18 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
                 seção 9
               </a>{" "}
               detalha o que fecharia essa lacuna.
+            </P>
+            <P>
+              Na prática, essa é a razão pela qual decidi não usar este cofre para guardar meus
+              próprios segredos de maior risco (banco, cartão, servidores) — mesmo depois da
+              revisão de código completa da v5 não encontrar nenhum problema novo, e de checagens
+              externas independentes (Mozilla HTTP Observatory, Supabase Security Advisor)
+              confirmarem a configuração como correta. Nenhuma dessas checagens substitui anos de
+              escrutínio contínuo por milhares de pesquisadores de segurança, que é o que um
+              gerenciador estabelecido como o Bitwarden acumula através de auditorias formais
+              publicadas e um programa de bug bounty ativo. Para esse tipo de segredo, uso um
+              gerenciador comercial auditado; este projeto segue existindo como demonstração de
+              arquitetura e como base de estudo.
             </P>
           </Sub>
         </Section>
@@ -618,8 +661,9 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
               <li>Infraestrutura dedicada (hoje roda em plano gratuito do Supabase) com backups multi-região e plano de recuperação de desastre.</li>
               <li>✅ <strong className="text-vault-text">Implementado</strong> — monitoramento externo (UptimeRobot) e status page pública (detalhes e link em <Code>MONITORAMENTO.md</Code>). Fica explícito ali que é monitoramento informal, de melhor esforço — um <strong className="text-vault-text">SLA contratual formal</strong> de disponibilidade continua sendo item de produto comercial, não de projeto pessoal.</li>
               <li>✅ <strong className="text-vault-text">Implementado</strong> — pipeline de CI/CD (GitHub Actions): lint + checagem de tipos + os 48 testes automatizados + build de produção em toda alteração; SAST (Semgrep) e atualização automática de dependências (Dependabot) rodando em toda PR. Ver detalhes na seção 13.</li>
-              <li>🟡 <strong className="text-vault-text">Parcialmente implementado</strong> — throttle de borda (Upstash) na rota pública <Code>/share/[id]</Code>, contra enumeração de links (seção 13). Proteção de DDoS dedicada em nível de infraestrutura (WAF, ex: Cloudflare) continua fora de escopo — e rate limiting/CAPTCHA no login em si depende do painel do Supabase (seção 11, item 4), não é algo que dê pra fazer só no código deste app.</li>
+              <li>✅ <strong className="text-vault-text">Implementado</strong> — CAPTCHA (Cloudflare Turnstile) no login/criar conta/recuperar senha, e throttle de borda (Upstash) na rota pública <Code>/share/[id]</Code> contra enumeração de links (seção 13). Proteção de DDoS dedicada em nível de infraestrutura (WAF, ex: Cloudflare na frente de tudo) continua fora de escopo — isso protegeria contra volume, não é a mesma coisa que o CAPTCHA (bot individual) ou o throttle (abuso de um IP específico).</li>
               <li>Processo formal de troca de senha mestra, com reencriptação automática de todos os itens existentes — deliberadamente deixado por último, pra avaliar prós e contras depois que o resto desta lista estivesse pronto.</li>
+              <li>🟡 <strong className="text-vault-text">Planejado</strong> — upgrade do Next.js (14.2.35 → 16.x), pra fechar os avisos de severidade alta que o <Code>npm audit</Code> aponta hoje (via <Code>postcss</Code>, dependência interna usada só em build — sem exploração possível em runtime deste app). É um pulo de duas versões major; a mudança que mais afeta este código é que <Code>params</Code>/<Code>searchParams</Code> de rotas dinâmicas passam a ser assíncronos a partir do Next 15 (afeta <Code>app/share/[id]/page.tsx</Code>). Planejado pra ser feito numa branch separada, com o codemod oficial da Vercel, validado pelo próprio pipeline de CI (lint + tipos + testes + build) antes de promover pra produção.</li>
             </UL>
           </Sub>
           <Sub title="9.3 Produto e experiência">
@@ -657,9 +701,10 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
             coisas que o código sozinho resolve:
           </P>
           <OL>
-            <li>Rodar <Code>supabase/schema.sql</Code> novamente no SQL Editor do Supabase (adiciona a coluna <Code>iterations</Code>, os limites de tamanho, e agora também a tabela <Code>shared_items</Code> do compartilhamento — idempotente). Sem isso, compartilhar por link não funciona.</li>
-            <li>Habilitar "Leaked password protection" em Authentication → Settings.</li>
-            <li>CAPTCHA (Cloudflare Turnstile) no login/criar conta/recuperar senha: código pronto (<Code>components/Turnstile.tsx</Code>, vira no-op sem a env var). Falta criar a conta grátis na Cloudflare, colocar <Code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</Code> na Vercel, e habilitar a proteção no painel do Supabase (Authentication → Settings → CAPTCHA) — diferente do throttle de borda em <Code>/share/[id]</Code>, que já está 100% ativo (ver seção 13).</li>
+            <li>✅ <Code>supabase/schema.sql</Code> rodado no SQL Editor do Supabase (coluna <Code>iterations</Code>, limites de tamanho, tabela <Code>shared_items</Code>).</li>
+            <li>✅ CAPTCHA (Cloudflare Turnstile) implementado e ativo no login/criar conta/recuperar senha (<Code>components/Turnstile.tsx</Code>) — conta na Cloudflare, site key na Vercel e proteção habilitada no painel do Supabase, tudo configurado. Diferente do throttle de borda em <Code>/share/[id]</Code>, que é outra coisa (ver seção 13).</li>
+            <li>🔵 <strong className="text-vault-text">"Leaked password protection" não é uma pendência</strong> — é recurso exclusivo do plano Pro do Supabase, indisponível no plano gratuito usado por este projeto (confirmado direto no painel, em Authentication → Attack Protection: o toggle existe, mas salvar falha com a mensagem "available on Pro Plans and up"). Documentado aqui pra não voltar a aparecer como pendência esquecida numa próxima revisão.</li>
+            <li>✅ Política de senha da conta endurecida em Authentication → Sign In / Providers → Email: comprimento mínimo subiu de 6 para 10 caracteres (alinhado ao que o formulário do app já exigia) e passou a exigir letra maiúscula, minúscula, número e símbolo.</li>
             <li>Redefinir sua senha mestra atual, se quiser migrar de 250k pra 600k iterações de PBKDF2 (opcional).</li>
           </OL>
         </Section>
@@ -684,6 +729,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
 │   ├── ShareModal.tsx            # Gerar/copiar/revogar um link de compartilhamento
 │   ├── ActiveSharesModal.tsx     # Lista e revoga links de compartilhamento ativos
 │   ├── MfaSettingsModal.tsx      # Cadastrar/remover autenticadores (MFA)
+│   ├── Turnstile.tsx             # Widget do CAPTCHA (Cloudflare Turnstile)
 │   └── ServiceWorkerRegister.tsx # Registra o service worker do PWA
 ├── lib/
 │   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (criptografia do cofre)
@@ -718,6 +764,7 @@ Chave AES-256 (CryptoKey, não-exportável, só em RAM)
 ├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V3.md     # Terceira auditoria — testes, CI/CD, SAST, rate limiting, monitoramento
+├── AUDITORIA_SEGURANCA_V4.md     # Quarta auditoria — CAPTCHA (Turnstile), reconfirmação de MFA e schema.sql
 ├── MFA.md                        # O que foi feito sobre Duplo fator e como ativar
 ├── MONITORAMENTO.md              # Uptime, alertas e status page pública (sem SLA formal)
 ├── DOCUMENTACAO.md               # Guia rápido de instalação/deploy
