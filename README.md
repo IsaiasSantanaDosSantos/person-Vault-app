@@ -4,11 +4,14 @@
 **Data:** 2026-08-13
 **Versão da aplicação:** `cofre-pessoal@1.0.0`
 
-Este documento reúne, num só lugar, o que a aplicação é, como foi construída, o que foi testado, o que foi auditado e — a pergunta que mais importa — **qual o nível de senha que é seguro guardar nela**. Ele complementa (não substitui) os dois relatórios de auditoria já existentes no projeto:
+Este documento reúne, num só lugar, o que a aplicação é, como foi construída, o que foi testado, o que foi auditado e — a pergunta que mais importa — **qual o nível de senha que é seguro guardar nela**. Ele complementa (não substitui) os relatórios de auditoria já existentes no projeto:
 
 - [AUDITORIA_SEGURANCA.md](AUDITORIA_SEGURANCA.md) — primeira auditoria completa (arquitetura, criptografia, RLS, dependências).
 - [AUDITORIA_SEGURANCA_V2.md](AUDITORIA_SEGURANCA_V2.md) — segunda auditoria (sessão persistente, edição de itens, resposta direta sobre "100% seguro").
+- [AUDITORIA_SEGURANCA_V3.md](AUDITORIA_SEGURANCA_V3.md) — terceira auditoria (testes automatizados, CI/CD, SAST, rate limiting de borda, monitoramento externo).
+- [AUDITORIA_SEGURANCA_V4.md](AUDITORIA_SEGURANCA_V4.md) — quarta auditoria (CAPTCHA, reconfirmação de MFA e da migração do `schema.sql`).
 - [MFA.md](MFA.md) — o que foi implementado sobre autenticação em dois fatores e como ativar quando fizer sentido.
+- [MONITORAMENTO.md](MONITORAMENTO.md) — uptime, alertas e status page pública.
 - [Guia para quem não é técnico](/ajuda) — passo a passo com prints de como usar o cofre no dia a dia.
 
 ---
@@ -228,6 +231,7 @@ Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
 - Lógica de criptografia do compartilhamento (`lib/shareCrypto.ts`) validada isoladamente no console do navegador: gerar chave → cifrar → exportar a chave em base64url → reimportar só a partir da string → decifrar — confirmado que bate exatamente com o texto original.
 - Página pública `/share/[id]` testada com um link inexistente contra o Supabase real, confirmando que mostra "link inválido" sem quebrar (também serviu pra confirmar que a tabela `shared_items` precisa da migração do `schema.sql` — sem ela, o mesmo erro genérico aparece).
 - **MFA testado e confirmado ponta a ponta** contra o Supabase real: cadastro de autenticador, exigência do código a cada login (logo após a conta autenticar, antes da senha mestra), e ausência da etapa quando nenhum autenticador está cadastrado — tudo funcionando como esperado (ver [MFA.md](MFA.md)).
+- **CAPTCHA (Cloudflare Turnstile) testado e confirmado** contra o Supabase real, nos três fluxos (entrar, criar conta, recuperar senha): sem o widget resolvido, o Supabase rejeita (`captcha protection: request disallowed`); com o token válido, o fluxo segue normal.
 
 **O que NÃO foi feito (limitações do processo de teste):**
 
@@ -246,7 +250,9 @@ Ver [MFA.md](MFA.md) para o detalhamento completo. Resumo:
 | [v1](AUDITORIA_SEGURANCA.md)    | 2026-08-13 | Arquitetura completa: criptografia, RLS, dependências, cabeçalhos HTTP, força de senha | 5 achados de prioridade Alta e 4 de Média corrigidos em código; itens de configuração do Supabase (MFA, leaked password protection, rate limiting) documentados como pendentes                                                                                |
 | [v2](AUDITORIA_SEGURANCA_V2.md) | 2026-08-13 | Mudanças pós-v1: sessão persistente, botão de logoff, edição de itens, ícone de marca  | Confirmado que a sessão persistente não enfraquece a segurança (a fronteira real continua sendo a chave derivada da senha mestra); RLS de `UPDATE` verificada contra a documentação oficial do Postgres antes de declarar segura; nenhum novo achado de risco |
 | v2.1                            | 2026-08-13 | Correção de layout (overflow do botão "Gerar")                                         | Corrigido com `min-w-0` no input — sem qualquer implicação de segurança, é puramente visual                                                                                                                                                                   |
-| v2.2 (esta rodada)               | 2026-08-14 | Compartilhamento de senha por link, MFA (feature-flagged), recuperação de senha da conta, exclusão de dados/conta | Revisão de segurança feita durante a própria implementação (não um relatório separado): chave de compartilhamento nova por link com escopo confirmado, teto de 24h garantido em duas camadas, MFA isolado atrás de um flag sem nenhuma chamada em produção enquanto desativado |
+| v2.2                             | 2026-08-14 | Compartilhamento de senha por link, MFA (feature-flagged), recuperação de senha da conta, exclusão de dados/conta | Revisão de segurança feita durante a própria implementação (não um relatório separado): chave de compartilhamento nova por link com escopo confirmado, teto de 24h garantido em duas camadas, MFA isolado atrás de um flag sem nenhuma chamada em produção enquanto desativado |
+| [v3](AUDITORIA_SEGURANCA_V3.md) | 2026-08-15 | Fix da expiração de link compartilhado, testes automatizados, CI/CD, SAST, Dependabot, rate limiting de borda, monitoramento externo | Corrigido um bypass real de RLS (dono logado abria o próprio link já expirado); 48 testes travam as invariantes de criptografia; todo push passa por lint+tipos+testes+build antes de main; SAST e Dependabot rodam em toda PR |
+| [v4](AUDITORIA_SEGURANCA_V4.md) (esta rodada) | 2026-08-15 | CAPTCHA (Cloudflare Turnstile) no login/criar conta/recuperar senha; reconfirmação de MFA e da migração do `schema.sql` | CAPTCHA implementado, configurado e testado ponta a ponta contra o Supabase real nos três fluxos; nenhum achado novo — a documentação estava desatualizada em alguns pontos (MFA e schema.sql já resolvidos não constavam como tal), corrigida nesta rodada |
 
 **Achados corrigidos ao longo das duas auditorias (resumo):**
 
@@ -340,10 +346,10 @@ Esta seção existe pra responder: **"o que faltaria pra transformar isso num pr
 
 Estas dependem de configuração no painel do Supabase ou de uma ação sua — não são coisas que o código sozinho resolve:
 
-1. **Rodar `supabase/schema.sql` novamente** no SQL Editor do Supabase (adiciona a coluna `iterations`, os limites de tamanho, e agora também a tabela `shared_items` do compartilhamento — idempotente, seguro rodar de novo). Sem isso, compartilhar uma senha por link não funciona.
+1. ~~Rodar `supabase/schema.sql` novamente~~ — ✅ rodado no SQL Editor do Supabase (coluna `iterations`, limites de tamanho, tabela `shared_items`).
 2. ~~MFA (TOTP)~~ — ✅ ativado e testado ponta a ponta contra o Supabase real (ver [MFA.md](MFA.md)).
-3. **Habilitar "Leaked password protection"** em Authentication → Settings.
-4. **CAPTCHA (Cloudflare Turnstile)** no login/criar conta/recuperar senha: código pronto (`components/Turnstile.tsx`, vira no-op sem a env var). Falta criar a conta grátis na Cloudflare, colocar `NEXT_PUBLIC_TURNSTILE_SITE_KEY` na Vercel, e habilitar a proteção no painel do Supabase (Authentication → Settings → CAPTCHA).
+3. ~~CAPTCHA (Cloudflare Turnstile)~~ — ✅ implementado e ativo no login/criar conta/recuperar senha (`components/Turnstile.tsx`), conta na Cloudflare criada, site key na Vercel, proteção habilitada no painel do Supabase.
+4. **Habilitar "Leaked password protection"** em Authentication → Settings.
 5. **Redefinir sua senha mestra atual**, se quiser migrar seu cofre já existente de 250k pra 600k iterações de PBKDF2 (opcional).
 
 ---
@@ -370,6 +376,7 @@ vault-app/
 │   ├── ShareModal.tsx            # Gerar/copiar/revogar um link de compartilhamento
 │   ├── ActiveSharesModal.tsx     # Lista e revoga links de compartilhamento ativos
 │   ├── MfaSettingsModal.tsx      # Cadastrar/remover autenticadores (MFA)
+│   ├── Turnstile.tsx             # Widget do CAPTCHA (Cloudflare Turnstile)
 │   └── ServiceWorkerRegister.tsx # Registra o service worker do PWA
 ├── lib/
 │   ├── crypto.ts                 # PBKDF2 + AES-256-GCM (criptografia do cofre)
@@ -379,13 +386,22 @@ vault-app/
 │   ├── vaultStore.ts             # CRUD contra o Supabase (vault_profiles, vault_items)
 │   ├── shareStore.ts             # CRUD contra o Supabase (shared_items)
 │   ├── mfaStore.ts               # Camada sobre supabase.auth.mfa.*
+│   ├── rateLimit.ts              # Throttle de borda em /share/[id] (Upstash, no-op sem env vars)
 │   ├── features.ts               # Interruptor MFA_ENABLED
 │   ├── constants.ts              # E-mail de suporte pra pedidos de exclusão de conta
-│   └── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
+│   ├── supabaseClient.ts         # Cliente do Supabase (chave anon pública)
+│   └── *.test.ts                 # 48 testes unitários (Vitest) — um por arquivo acima
 ├── supabase/
 │   └── schema.sql                # Tabelas, RLS, constraints (rodar no SQL Editor)
-├── middleware.ts                 # Content-Security-Policy com nonce por requisição
+├── .github/
+│   ├── workflows/ci.yml              # Lint + tipos + testes + build em toda PR
+│   ├── workflows/promote-to-main.yml # Promove pre-producao -> main quando o ci passa
+│   ├── workflows/semgrep.yml         # SAST, roda em qualquer visibilidade de repo
+│   └── dependabot.yml                # Atualização semanal de npm + github-actions
+├── middleware.ts                 # CSP com nonce por requisição + rate limiting de /share/*
 ├── next.config.mjs               # Cabeçalhos de segurança (HSTS, X-Frame-Options, etc.)
+├── vitest.config.mts             # Configuração dos testes unitários
+├── .eslintrc.json                # Configuração do lint (usado pelo CI)
 ├── public/
 │   ├── manifest.json             # Manifest do PWA (cores, ícones, screenshots)
 │   ├── sw.js                     # Service worker
@@ -394,7 +410,10 @@ vault-app/
 │   └── guide/                    # Prints usados no guia de uso (/ajuda)
 ├── AUDITORIA_SEGURANCA.md        # Primeira auditoria de segurança
 ├── AUDITORIA_SEGURANCA_V2.md     # Segunda auditoria de segurança
+├── AUDITORIA_SEGURANCA_V3.md     # Terceira auditoria — testes, CI/CD, SAST, rate limiting, monitoramento
+├── AUDITORIA_SEGURANCA_V4.md     # Quarta auditoria — CAPTCHA (Turnstile), reconfirmação de MFA e schema.sql
 ├── MFA.md                        # O que foi feito sobre Duplo fator e como ativar
+├── MONITORAMENTO.md              # Uptime, alertas e status page pública (sem SLA formal)
 ├── DOCUMENTACAO.md               # Guia rápido de instalação/deploy
 └── README.md                     # Este arquivo
 ```
